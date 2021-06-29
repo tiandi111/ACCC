@@ -74,6 +74,10 @@ int Parser::Empty() {
     return pos >= toks.size();
 }
 
+int Parser::Line() {
+    return pos == 0 ? 1 : toks.at(pos-1).line;
+}
+
 Program Parser::ParseProgram() {
     Program prog;
 
@@ -85,7 +89,7 @@ Program Parser::ParseProgram() {
             throw runtime_error("");
         }
 
-        ConsumeIfMatchWithException(Token::kSemiColon, "")
+        if (!ConsumeIfMatch(Token::kSemiColon)) diag.Emit(Line(), "expect ';' after class definition");
     }
 
     if (prog.classes.empty()) {
@@ -96,7 +100,7 @@ Program Parser::ParseProgram() {
 }
 
 Class Parser::ParseClass() {
-    ConsumeIfMatchWithException(Token::kClass, "expected class keyword")
+    if (!ConsumeIfMatch(Token::kClass)) diag.Emit(Line(), "expect keyword 'class'");
 
     Class cls;
 
@@ -211,16 +215,16 @@ shared_ptr<Expr> Parser::ParseExpr() {
                     break;
                 }
                 case Token::Integer:
-                    expr = make_shared<Integer>(Integer());
+                    expr = make_shared<Integer>(ParseInteger());
                     break;
                 case Token::String:
-                    expr = make_shared<String>(String());
+                    expr = make_shared<String>(ParseString());
                     break;
                 case Token::kTrue:
-                    expr = make_shared<True>(True());
+                    expr = make_shared<True>(ParseTrue());
                     break;
                 case Token::kFalse:
-                    expr = make_shared<False>(False());
+                    expr = make_shared<False>(ParseFalse());
                     break;
                 default:
                     throw runtime_error("invalid Expr type");
@@ -230,7 +234,7 @@ shared_ptr<Expr> Parser::ParseExpr() {
             if (exprStack.empty()) {
                 throw runtime_error("");
             }
-            auto& right = exprStack.top();
+            auto right = exprStack.top();
             exprStack.pop();
             switch (tokType) {
                 case Token::kAdd:
@@ -378,6 +382,26 @@ New Parser::ParseNew() {
     return aNew;
 }
 
+repr::Integer Parser::ParseInteger() {
+    ConsumeIfMatchWithException(Token::Integer, "");
+    return Integer();
+}
+
+repr::String Parser::ParseString() {
+    ConsumeIfMatchWithException(Token::String, "");
+    return String();
+}
+
+repr::True Parser::ParseTrue() {
+    ConsumeIfMatchWithException(Token::kTrue, "");
+    return True();
+}
+
+repr::False Parser::ParseFalse() {
+    ConsumeIfMatchWithException(Token::kFalse, "");
+    return False();
+}
+
 IsVoid Parser::ParseIsVoid() {
     ConsumeIfMatchWithException(Token::kIsvoid, "")
     return IsVoid(ParseExpr());
@@ -428,5 +452,5 @@ Equal Parser::ParseEqual(shared_ptr<repr::Expr> left) {
 
 MethodCall Parser::ParseMethodCall(shared_ptr<repr::Expr> left) {
     ConsumeIfMatchWithException(Token::kDot, "")
-    return MethodCall(move(left), ParseExpr());
+    return MethodCall(move(left), make_shared<Call>(ParseCall()));
 }

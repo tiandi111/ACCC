@@ -56,17 +56,21 @@ struct Token {
         kCloseBrace,
         kAssignment,
         kEval,
+        SKIP, // skipped token
         END
     };
     Type type;
     string str;
     string val;
+    int line = 0;
 
-    Token(Type _type, string _str, string _val) : type(_type), str(std::move(_str)), val(std::move(_val)) {}
+    Token(Type _type, string _str, string _val, int _line)
+    : type(_type), str(std::move(_str)), val(std::move(_val)), line(_line) {
+        assert(type > ST && type < END);
+    }
 
-//    Token(Token const &tok) : type(tok.type), str(tok.str), val(tok.val) {}
-//
-//    Token(Token&& tok) : type(tok.type), str(move(tok.str)), val(move(tok.val)) {}
+    bool Skip() { return type == SKIP; }
+
 };
 
 #endif //COOL_TOKEN_H

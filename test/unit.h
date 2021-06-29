@@ -15,91 +15,91 @@ using namespace std;
 
 vector<vector<Token>> testFieldFeats = {
     {
-        {Token::ID, "test", "test"},
-        {Token::kColon, "", ""},
-        {Token::TypeID, "test", "test"},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "", "", 0},
+        {Token::TypeID, "test", "test", 0},
     },
     {
-        {Token::ID, "test", "test"},
-        {Token::kColon, "", ""},
-        {Token::TypeID, "test", "test"},
-        {Token::kAssignment, "test", "test"},
-        {Token::ID, "test", "test"},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "", "", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kAssignment, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
     }
 };
 
 vector<vector<Token>> testFuncFeats = {
     {
-        {Token::ID, "test", "test"},
-        {Token::kOpenParen, "", ""},
-        {Token::kCloseParen, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "test", "test"},
-        {Token::kOpenBrace, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kCloseBrace, "test", "test"},
+        {Token::ID, "test", "test", 0},
+        {Token::kOpenParen, "", "", 0},
+        {Token::kCloseParen, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kOpenBrace, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kCloseBrace, "test", "test", 0},
     },
     {
-        {Token::ID, "test", "test"},
-        {Token::kOpenParen, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "", ""},
-        {Token::TypeID, "test", "test"},
-        {Token::kCloseParen, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "test", "test"},
-        {Token::kOpenBrace, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kCloseBrace, "test", "test"},
+        {Token::ID, "test", "test", 0},
+        {Token::kOpenParen, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "", "", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kCloseParen, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kOpenBrace, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kCloseBrace, "test", "test", 0},
     },
     {
-        {Token::ID, "test", "test"},
-        {Token::kOpenParen, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "", ""},
-        {Token::TypeID, "test", "test"},
-        {Token::kComma, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "", ""},
-        {Token::TypeID, "test", "test"},
-        {Token::kCloseParen, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "test", "test"},
-        {Token::kOpenBrace, "test", "test"},
-        {Token::kIsvoid, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kCloseBrace, "test", "test"},
+        {Token::ID, "test", "test", 0},
+        {Token::kOpenParen, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "", "", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kComma, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "", "", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kCloseParen, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kOpenBrace, "test", "test", 0},
+        {Token::kIsvoid, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kCloseBrace, "test", "test", 0},
     }
 };
 
 void ConstructClassTokens(vector<Token>& dest, bool inherits,
     vector<vector<Token>>& funcFeats, vector<vector<Token>>& fieldFeats) {
-    dest.emplace_back(Token{Token::kClass, "test", "test"});
-    dest.emplace_back(Token{Token::TypeID, "test", "test"});
+    dest.emplace_back(Token{Token::kClass, "test", "test", 0});
+    dest.emplace_back(Token{Token::TypeID, "test", "test", 0});
     if (inherits) {
-        dest.emplace_back(Token{Token::kInheirits, "test", "test"});
-        dest.emplace_back(Token{Token::TypeID, "test", "test"});
+        dest.emplace_back(Token{Token::kInheirits, "test", "test", 0});
+        dest.emplace_back(Token{Token::TypeID, "test", "test", 0});
     }
-    dest.emplace_back(Token{Token::kOpenBrace, "test", "test"});
+    dest.emplace_back(Token{Token::kOpenBrace, "test", "test", 0});
     for (auto& toks : funcFeats) {
         for (auto& tok : toks) {
             dest.emplace_back(tok);
         }
-        dest.emplace_back(Token{Token::kSemiColon, "test", "test"});
+        dest.emplace_back(Token{Token::kSemiColon, "test", "test", 0});
     }
     for (auto& toks : fieldFeats) {
         for (auto& tok : toks) {
             dest.emplace_back(tok);
         }
-        dest.emplace_back(Token{Token::kSemiColon, "test", "test"});
+        dest.emplace_back(Token{Token::kSemiColon, "test", "test", 0});
     }
-    dest.emplace_back(Token{Token::kCloseBrace, "test", "test"});
+    dest.emplace_back(Token{Token::kCloseBrace, "test", "test", 0});
 }
 
 void ConstructProgTokens(vector<Token>& dest, bool inherits,
     vector<vector<Token>>& funcFeats, vector<vector<Token>>& fieldFeats) {
     ConstructClassTokens(dest, inherits, funcFeats, fieldFeats);
-    dest.emplace_back(Token{Token::kSemiColon, "test", "test"});
+    dest.emplace_back(Token{Token::kSemiColon, "test", "test", 0});
 }
 
 void TestMatchMultiple();
@@ -151,8 +151,10 @@ void TestPassManager();
 
 void TestVirtualTable();
 
-void TestTypeAttrs();
+// todo: typead test
 
-void TestSemanticChecking();
+void TestSemanticCheckingPasses();
+
+void TestFrontEnd();
 
 #endif //COOL_UNIT_H

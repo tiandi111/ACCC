@@ -10,6 +10,7 @@
 
 #include "repr.h"
 #include "token.h"
+#include "diag.h"
 
 using namespace std;
 
@@ -31,15 +32,18 @@ namespace parser {
 
 class Parser {
   private:
+    diag::Diagnosis& diag;
     vector<Token> toks;
     int pos;
 
   public:
-    Parser(vector<Token> _toks) : toks(std::move(_toks)), pos(0) {}
+    Parser(diag::Diagnosis& _diag, vector<Token> _toks) : diag(_diag), toks(std::move(_toks)), pos(0) {}
 
     Token& Peek();
 
     int Empty();
+
+    int Line();
 
     void Consume();
 
@@ -74,6 +78,10 @@ class Parser {
     repr::Assign ParseAssign();
     repr::Call ParseCall();
     repr::New ParseNew();
+    repr::Integer ParseInteger();
+    repr::String ParseString();
+    repr::True ParseTrue();
+    repr::False ParseFalse();
 
     repr::IsVoid ParseIsVoid();
     repr::Negate ParseNegate();

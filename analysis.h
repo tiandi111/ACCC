@@ -19,16 +19,19 @@ class InstallBuiltin : public pass::Pass {
 class InitSymbolTable : public pass::Pass {
   public:
     repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    void Required() final;
 };
 
 class BuildInheritanceTree : public pass::Pass {
   public:
     repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    void Required() final;
 };
 
 class TypeChecking : public pass::Pass {
   public:
     repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    void Required() final;
 };
 
 } // ana

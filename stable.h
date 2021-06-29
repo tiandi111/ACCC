@@ -17,8 +17,8 @@
 using namespace std;
 using namespace cool;
 
-#define NEW_SCOPE_GUARD(scope, stmt)\
-    scope.NewScope();\
+#define NEW_SCOPE_GUARD(scope, stmt, ...)\
+    scope.NewScope(__VA_ARGS__);\
     stmt;\
     scope.FinishScope();
 
@@ -69,7 +69,6 @@ class ScopedTable {
         stack.pop_back();
     }
 
-    // todo: fix: when there's no val in stack
     T& Current() {
         if (stack.empty()) {
             throw runtime_error("no scope to return, call NewScope or EnterScope first");
@@ -78,69 +77,69 @@ class ScopedTable {
     }
 };
 
-// todo: invoke methods recursively on scoped symbol tables
 class SymbolTable {
   private:
-    using FuncAttrMap = unordered_map<string, shared_ptr<attr::FuncAttr>>;
     using IdAttrMap = unordered_map<string, shared_ptr<attr::IdAttr>>;
-    using TypeAttrMap = unordered_map<string, shared_ptr<attr::TypeAttr>>;
 
-    unordered_map<string, shared_ptr<attr::FuncAttr>> funcs;
     unordered_map<string, shared_ptr<attr::IdAttr>> ids;
-    unordered_map<string, shared_ptr<attr::TypeAttr>> types;
     shared_ptr<repr::Class> cls;
 
   public:
 
     SymbolTable() = default;
 
-    bool ContainsFunc(const string& name) {
-        return funcs.find(name) != funcs.end();
+    SymbolTable(shared_ptr<repr::Class> _cls) {
+        cls = move(_cls);
     }
 
     bool ContainsId(const string& name) {
         return ids.find(name) != ids.end();
     }
 
-    bool ContainsType(const string& name) {
-        return types.find(name) != types.end();
-    }
-
-    shared_ptr<attr::FuncAttr> GetFuncAttr(const string& name)   {
-        return funcs.at(name);
-    }
-
     shared_ptr<attr::IdAttr> GetIdAttr(const string& name)  {
         return ids.at(name);
-    }
-
-    shared_ptr<attr::TypeAttr> GetTypeAttr(const string& name)  {
-        return types.at(name);
-    }
-
-    const FuncAttrMap& GetFuncAttrMap() {
-        return funcs;
     }
 
     const IdAttrMap & GetIdAttrMap() {
         return ids;
     }
 
-    const TypeAttrMap & GetTypeAttrMap() {
-        return types;
-    }
-
-    void Insert(attr::FuncAttr attr) {
-        funcs[attr.name] = make_shared<attr::FuncAttr>(attr);
-    }
-
     void Insert(attr::IdAttr attr) {
         ids[attr.name] = make_shared<attr::IdAttr>(attr);
     }
 
-    void Insert(attr::TypeAttr attr) {
-        types[attr.name] = make_shared<attr::TypeAttr>(attr);
+    shared_ptr<repr::Class> GetClass() {
+        return cls;
     }
 };
+
+template<typename T>
+class ScopedTableSpecializer : ScopedTable<T> {};
+
+template<>
+class ScopedTableSpecializer<SymbolTable> : public ScopedTable<SymbolTable> {
+  public:
+    void NewScope(shared_ptr<repr::Class> cls) {
+        stack.push_back(next++);
+        val.emplace_back(SymbolTable(move(cls)));
+    }
+
+    shared_ptr<attr::IdAttr> GetIdAttr(const string& name) {
+        for (int i = stack.size()-1; i>=0; i--) {
+            auto attr = val.at(stack.at(i)).GetIdAttr(name);
+            if (!attr) return attr;
+        }
+        return nullptr;
+    }
+
+    void Insert(attr::IdAttr attr) {
+        Current().Insert(attr);
+    }
+
+    shared_ptr<repr::Class> GetClass() {
+        return Current().GetClass();
+    }
+};
+
 
 #endif //COOL_STABLE_H

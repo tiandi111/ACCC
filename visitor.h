@@ -25,6 +25,7 @@ class ProgramVisitor {
 class ClassVisitor {
   public:
     virtual void Visit(repr::Class &cls) {}
+    virtual void Visit(shared_ptr<repr::Class> ptr) {}
 };
 
 class FuncFeatureVisitor {
@@ -51,7 +52,7 @@ class ExprVisitor {
   public:
     R Visit(repr::Expr& expr, Args... args) {
         VTable vtable = GetVTable();
-        vtable(expr, *this, args...);
+        return vtable(expr, *this, args...);
     }
 
     #define EXPR_VISITOR_DEFAULT { VisitDefault_(); }
@@ -79,7 +80,7 @@ class ExprVisitor {
     virtual R Visit_(repr::String& expr, Args... args) EXPR_VISITOR_DEFAULT;
     virtual R Visit_(repr::True& expr, Args... args) EXPR_VISITOR_DEFAULT;
     virtual R Visit_(repr::While& expr, Args... args) EXPR_VISITOR_DEFAULT;
-    virtual void VisitDefault_() {
+    virtual R VisitDefault_() {
         cerr<< "default not found" <<endl;
         throw;
     }

@@ -3,6 +3,7 @@
 //
 #include <iostream>
 #include <sstream>
+#include <fstream>
 #include "unit.h"
 #include "../parser.h"
 #include "../tokenizer.h"
@@ -10,30 +11,36 @@
 #include "../analysis.h"
 #include "../stable.h"
 #include "../builtin.h"
-#include "../attrs.h"
+#include "../typead.h"
+#include "../diag.h"
 
 using namespace std;
 
-using namespace cool::parser;
-using namespace cool::repr;
-using namespace cool::pass;
-using namespace cool::ana;
-using namespace cool::builtin;
+using namespace cool;
+using namespace parser;
+using namespace repr;
+using namespace pass;
+using namespace ana;
+using namespace builtin;
 using namespace attr;
+using namespace diag;
+using namespace tok;
+
+Diagnosis testDiag;
 
 void TestMatchMultiple() {
-    Parser parser({
-        {Token::ID, "test", "test"},
-        {Token::TypeID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::ID, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0}
     });
     vector<Token::Type> types = {Token::ID, Token::TypeID};
     assert(parser.MatchMultiple(types));
 }
 
 void TestParseID() {
-    Parser parser({
-        {Token::ID, "test", "test"},
-        {Token::ID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::ID, "test", "test", 0},
+        {Token::ID, "test", "test", 0}
     });
     try {
         auto id = parser.ParseID();
@@ -44,9 +51,9 @@ void TestParseID() {
 }
 
 void TestParseUnary() {
-    Parser parser({
-        {Token::kNot, "", ""},
-        {Token::ID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::kNot, "", "", 0},
+        {Token::ID, "test", "test", 0}
     });
     try {
         auto id = parser.ParseNot();
@@ -56,9 +63,9 @@ void TestParseUnary() {
 }
 
 void TestParseBinary() {
-    Parser parser({
-        {Token::kAdd, "", ""},
-        {Token::ID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::kAdd, "", "", 0},
+        {Token::ID, "test", "test", 0}
     });
     try {
         ID id;
@@ -69,9 +76,9 @@ void TestParseBinary() {
 }
 
 void TestParseNew() {
-    Parser parser({
-        {Token::kNew, "", ""},
-        {Token::TypeID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::kNew, "", "", 0},
+        {Token::TypeID, "test", "test", 0}
     });
     try {
         auto newExpr = parser.ParseNew();
@@ -81,23 +88,23 @@ void TestParseNew() {
 }
 
 void TestParseCall() {
-    Parser parser({
+    Parser parser(testDiag, {
         // case 1
-        {Token::ID, "", ""},
-        {Token::kOpenParen, "test", "test"},
-        {Token::kCloseParen, "test", "test"},
+        {Token::ID, "", "", 0},
+        {Token::kOpenParen, "test", "test", 0},
+        {Token::kCloseParen, "test", "test", 0},
         // case 2
-        {Token::ID, "", ""},
-        {Token::kOpenParen, "test", "test"},
-        {Token::ID, "", ""},
-        {Token::kCloseParen, "test", "test"},
+        {Token::ID, "", "", 0},
+        {Token::kOpenParen, "test", "test", 0},
+        {Token::ID, "", "", 0},
+        {Token::kCloseParen, "test", "test", 0},
         // case 3
-        {Token::ID, "", ""},
-        {Token::kOpenParen, "test", "test"},
-        {Token::ID, "", ""},
-        {Token::kComma, "", ""},
-        {Token::ID, "", ""},
-        {Token::kCloseParen, "test", "test"}
+        {Token::ID, "", "", 0},
+        {Token::kOpenParen, "test", "test", 0},
+        {Token::ID, "", "", 0},
+        {Token::kComma, "", "", 0},
+        {Token::ID, "", "", 0},
+        {Token::kCloseParen, "test", "test", 0}
     });
     try {
         auto call1 = parser.ParseCall();
@@ -109,10 +116,10 @@ void TestParseCall() {
 }
 
 void TestParseAssign() {
-    Parser parser({
-        {Token::ID, "test", "test"},
-        {Token::kAssignment, "", ""},
-        {Token::ID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::ID, "test", "test", 0},
+        {Token::kAssignment, "", "", 0},
+        {Token::ID, "test", "test", 0}
     });
     try {
         auto assign = parser.ParseAssign();
@@ -122,35 +129,35 @@ void TestParseAssign() {
 }
 
 void TestParseCase() {
-    Parser parser({
+    Parser parser(testDiag, {
         // case 1
-        {Token::kCase, "test", "test"},
-        {Token::ID, "", ""},
-        {Token::kOf, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "test", "test"},
-        {Token::kEval, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kSemiColon, "test", "test"},
-        {Token::kEsac, "test", "test"},
+        {Token::kCase, "test", "test", 0},
+        {Token::ID, "", "", 0},
+        {Token::kOf, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kEval, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kSemiColon, "test", "test", 0},
+        {Token::kEsac, "test", "test", 0},
         // case 2
-        {Token::kCase, "test", "test"},
-        {Token::ID, "", ""},
-        {Token::kOf, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "test", "test"},
-        {Token::kEval, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kSemiColon, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "test", "test"},
-        {Token::kEval, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kSemiColon, "test", "test"},
-        {Token::kEsac, "test", "test"}
+        {Token::kCase, "test", "test", 0},
+        {Token::ID, "", "", 0},
+        {Token::kOf, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kEval, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kSemiColon, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "test", "test", 0},
+        {Token::kEval, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kSemiColon, "test", "test", 0},
+        {Token::kEsac, "test", "test", 0}
     });
     try {
         auto case1 = parser.ParseCase();
@@ -161,38 +168,38 @@ void TestParseCase() {
 }
 
 void TestParseLet() {
-    Parser parser({
+    Parser parser(testDiag, {
         // case 1
-        {Token::kLet, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "", ""},
-        {Token::kIn, "test", "test"},
-        {Token::ID, "", ""},
+        {Token::kLet, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "", "", 0},
+        {Token::kIn, "test", "test", 0},
+        {Token::ID, "", "", 0},
         // case 2
-        {Token::kLet, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "", ""},
-        {Token::kAssignment, "", ""},
-        {Token::ID, "", ""},
-        {Token::kIn, "test", "test"},
-        {Token::ID, "", ""},
+        {Token::kLet, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "", "", 0},
+        {Token::kAssignment, "", "", 0},
+        {Token::ID, "", "", 0},
+        {Token::kIn, "test", "test", 0},
+        {Token::ID, "", "", 0},
         // case 3
-        {Token::kLet, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "", ""},
-        {Token::kAssignment, "", ""},
-        {Token::ID, "", ""},
-        {Token::kComma, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kColon, "test", "test"},
-        {Token::TypeID, "", ""},
-        {Token::kAssignment, "", ""},
-        {Token::ID, "", ""},
-        {Token::kIn, "test", "test"},
-        {Token::ID, "", ""},
+        {Token::kLet, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "", "", 0},
+        {Token::kAssignment, "", "", 0},
+        {Token::ID, "", "", 0},
+        {Token::kComma, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "test", "test", 0},
+        {Token::TypeID, "", "", 0},
+        {Token::kAssignment, "", "", 0},
+        {Token::ID, "", "", 0},
+        {Token::kIn, "test", "test", 0},
+        {Token::ID, "", "", 0},
     });
     try {
         auto let1 = parser.ParseLet();
@@ -204,12 +211,12 @@ void TestParseLet() {
 }
 
 void TestParseWhile() {
-    Parser parser({
-        {Token::kWhile, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kLoop, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kPool, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::kWhile, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kLoop, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kPool, "test", "test", 0}
     });
     try {
         auto whileExpr = parser.ParseWhile();
@@ -223,30 +230,30 @@ void TestParseBlock() {
         {
             "case1",
             {
-                {Token::kOpenBrace, "test", "test"},
-                {Token::ID, "test", "test"},
-                {Token::kSemiColon, "", ""},
-                {Token::kCloseBrace, "test", "test"}
+                {Token::kOpenBrace, "test", "test", 0},
+                {Token::ID, "test", "test", 0},
+                {Token::kSemiColon, "", "", 0},
+                {Token::kCloseBrace, "test", "test", 0}
             },
             false,
         },
         {
             "case2",
             {
-                {Token::kOpenBrace, "test", "test"},
-                {Token::ID, "test", "test"},
-                {Token::kSemiColon, "", ""},
-                {Token::ID, "test", "test"},
-                {Token::kSemiColon, "", ""},
-                {Token::kCloseBrace, "test", "test"},
+                {Token::kOpenBrace, "test", "test", 0},
+                {Token::ID, "test", "test", 0},
+                {Token::kSemiColon, "", "", 0},
+                {Token::ID, "test", "test", 0},
+                {Token::kSemiColon, "", "", 0},
+                {Token::kCloseBrace, "test", "test", 0},
             },
             false,
         },
         {
             "case3",
             {
-                {Token::kOpenBrace, "test", "test"},
-                {Token::kCloseBrace, "test", "test"},
+                {Token::kOpenBrace, "test", "test", 0},
+                {Token::kCloseBrace, "test", "test", 0},
             },
             true,
         },
@@ -254,7 +261,7 @@ void TestParseBlock() {
     for (auto& tc : cases) {
         cout<< tc.name <<endl;
         try {
-            Parser parser(tc.toks);
+            Parser parser(testDiag, tc.toks);
             auto block = parser.ParseBlock();
             if (tc.throwExp) assert(false);
         } catch (exception& e) {
@@ -264,14 +271,14 @@ void TestParseBlock() {
 }
 
 void TestParseIf() {
-    Parser parser({
-        {Token::kIf, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kThen, "", ""},
-        {Token::ID, "test", "test"},
-        {Token::kElse, "test", "test"},
-        {Token::ID, "test", "test"},
-        {Token::kFi, "test", "test"},
+    Parser parser(testDiag, {
+        {Token::kIf, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kThen, "", "", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kElse, "test", "test", 0},
+        {Token::ID, "test", "test", 0},
+        {Token::kFi, "test", "test", 0},
     });
     try {
         auto ifExpr = parser.ParseIf();
@@ -281,10 +288,10 @@ void TestParseIf() {
 }
 
 void TestParseExpr() {
-    Parser parser({
-        {Token::ID, "test", "test"},
-        {Token::kAdd, "", ""},
-        {Token::ID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::ID, "test", "test", 0},
+        {Token::kAdd, "", "", 0},
+        {Token::ID, "test", "test", 0}
     });
     try {
         auto expr = parser.ParseExpr();
@@ -294,10 +301,10 @@ void TestParseExpr() {
 }
 
 void TestParseFormal() {
-    Parser parser({
-        {Token::ID, "test", "test"},
-        {Token::kColon, "", ""},
-        {Token::TypeID, "test", "test"}
+    Parser parser(testDiag, {
+        {Token::ID, "test", "test", 0},
+        {Token::kColon, "", "", 0},
+        {Token::TypeID, "test", "test", 0}
     });
     try {
         auto formal = parser.ParseFormal();
@@ -313,7 +320,7 @@ void TestParseFuncFeature() {
             toks.emplace_back(tok);
         }
     }
-    Parser parser(toks);
+    Parser parser(testDiag, toks);
     try {
         for (int i = 0; i < testFuncFeats.size(); i++) {
             parser.ParseFuncFeature();
@@ -331,7 +338,7 @@ void TestParseFieldFeature() {
             toks.emplace_back(tok);
         }
     }
-    Parser parser(toks);
+    Parser parser(testDiag, toks);
     try {
         for (int i = 0; i < testFieldFeats.size(); i++) {
             parser.ParseFieldFeature();
@@ -345,7 +352,7 @@ void TestParseClass() {
     vector<Token> toks;
     ConstructClassTokens(toks, true, testFuncFeats, testFieldFeats);
     ConstructClassTokens(toks, false, testFuncFeats, testFieldFeats);
-    Parser parser(toks);
+    Parser parser(testDiag, toks);
     try {
         parser.ParseClass();
         parser.ParseClass();
@@ -359,7 +366,7 @@ void TestParseProgram() {
     vector<Token> toks;
     ConstructProgTokens(toks, true, testFuncFeats, testFieldFeats);
     ConstructProgTokens(toks, false , testFuncFeats, testFieldFeats);
-    Parser parser(toks);
+    Parser parser(testDiag, toks);
     try {
         parser.ParseProgram();
     } catch (exception& e) {
@@ -369,75 +376,75 @@ void TestParseProgram() {
 
 void TestTokDigit() {
     vector<TokComponentTestCase> cases = {
-        {"0", {Token::Integer, "0", "0"}},
-        {"00", {Token::Integer, "00", "00"}},
-        {"01", {Token::Integer, "01", "01"}},
-        {"123", {Token::Integer, "123", "123"}},
-        {"12a", {Token::Integer, "12", "12"}},
+        {"0", {Token::Integer, "0", "0", 0}},
+        {"00", {Token::Integer, "00", "00", 0}},
+        {"01", {Token::Integer, "01", "01", 0}},
+        {"123", {Token::Integer, "123", "123", 0}},
+        {"12a", {Token::Integer, "12", "12", 0}},
     };
     for (auto& c : cases) {
         stringstream sstream;
         sstream<< c.str;
-        Tokenizer tokenizer({});
-        auto tok = tokenizer.TokDigit(sstream);
+        Tokenizer tokenizer(testDiag);
+        auto tok = tokenizer.TokDigit(0, sstream);
         assert(tok.type == c.tok.type && tok.str == c.tok.str && tok.val == c.tok.val);
     }
 }
 
 void TestTokAlpha() {
     vector<TokComponentTestCase> cases = {
-        {"abc", {Token::ID, "abc", "abc"}},
-        {"_abc", {Token::ID, "_abc", "_abc"}},
-        {"ab1_1", {Token::ID, "ab1_1", "ab1_1"}},
-        {"test space", {Token::ID, "test", "test"}},
-        {"test\nspace", {Token::ID, "test", "test"}},
-        {"File", {Token::TypeID, "File", "File"}},
-        {"File inherits", {Token::TypeID, "File", "File"}},
-        {"File_Reader1", {Token::TypeID, "File_Reader1", "File_Reader1"}},
-        {"if", {Token::kIf, "", ""}},
-        {"If", {Token::kIf, "", ""}},
-        {"ifabc", {Token::ID, "ifabc", "ifabc"}},
+        {"abc", {Token::ID, "abc", "abc", 0}},
+        {"_abc", {Token::ID, "_abc", "_abc", 0}},
+        {"ab1_1", {Token::ID, "ab1_1", "ab1_1", 0}},
+        {"test space", {Token::ID, "test", "test", 0}},
+        {"test\nspace", {Token::ID, "test", "test", 0}},
+        {"File", {Token::TypeID, "File", "File", 0}},
+        {"File inherits", {Token::TypeID, "File", "File", 0}},
+        {"File_Reader1", {Token::TypeID, "File_Reader1", "File_Reader1", 0}},
+        {"if", {Token::kIf, "", "", 0}},
+        {"If", {Token::kIf, "", "", 0}},
+        {"ifabc", {Token::ID, "ifabc", "ifabc", 0}},
     };
     for (auto& c : cases) {
         stringstream sstream;
         sstream<< c.str;
-        Tokenizer tokenizer({});
-        auto tok = tokenizer.TokAlpha(sstream);
+        Tokenizer tokenizer(testDiag);
+        auto tok = tokenizer.TokAlpha(0, sstream);
         assert(tok.type == c.tok.type && tok.str == c.tok.str && tok.val == c.tok.val);
     }
 }
 
 void TestTokString() {
     vector<TokComponentTestCase> cases = {
-        {"\"\"", {Token::String, "", ""}},
-        {"\"abc\"", {Token::String, "abc", "abc"}},
-        {"\"abc\"\"", {Token::String, "abc", "abc"}},
-        {"\"\\\"\"", {Token::String, "\"", "\""}},
-        {"\"\\\"\\c\"", {Token::String, "\"c", "\"c"}},
+        {"\"\"", {Token::String, "", "", 0}},
+        {"\"abc\"", {Token::String, "abc", "abc", 0}},
+        {"\"abc\"\"", {Token::String, "abc", "abc", 0}},
+        {"\"\\\"\"", {Token::String, "\"", "\"", 0}},
+        {"\"\\\"\\c\"", {Token::String, "\"c", "\"c", 0}},
     };
     for (auto& c : cases) {
         stringstream sstream;
         sstream<< c.str;
-        Tokenizer tokenizer({});
-        auto tok = tokenizer.TokString(sstream);
+        Tokenizer tokenizer(testDiag);
+        auto tok = tokenizer.TokString(0, sstream);
         assert(tok.type == c.tok.type && tok.str == c.tok.str && tok.val == c.tok.val);
     }
 }
 
 void TestTokSpecial() {
     vector<TokComponentTestCase> cases = {
-        {"<-", {Token::kAssignment, "", ""}},
-        {"<6", {Token::kLessThan, "", ""}},
-        {"<=6", {Token::kLessThanOrEqual, "", ""}},
-        {"=6", {Token::kEqual, "", ""}},
-        {"=>6", {Token::kEval, "", ""}},
-        {";", {Token::kSemiColon, "", ""}},
+        {"<-", {Token::kAssignment, "", "", 0}},
+        {"<6", {Token::kLessThan, "", "", 0}},
+        {"<=6", {Token::kLessThanOrEqual, "", "", 0}},
+        {"=6", {Token::kEqual, "", "", 0}},
+        {"=>6", {Token::kEval, "", "", 0}},
+        {";", {Token::kSemiColon, "", "", 0}},
     };
     for (auto& c : cases) {
         stringstream sstream;
         sstream<< c.str;
-        Tokenizer tokenizer({});
-        auto tok = tokenizer.TokSpecial(sstream);
+        Tokenizer tokenizer(testDiag);
+        auto tok = tokenizer.TokSpecial(0, sstream);
         assert(tok.type == c.tok.type && tok.str == c.tok.str && tok.val == c.tok.val);
     }
 }
@@ -449,40 +456,40 @@ void TestTokenizer() {
          "    g (y : String) : String {\n"
          "        y.concat(s)\n"
          "    };\n"
-         "};", {
-            {Token::kClass, "", ""},
-            {Token::TypeID, "B", "B"},
-            {Token::kOpenBrace, "", ""},
-            {Token::ID, "s", "s"},
-            {Token::kColon, "", ""},
-            {Token::TypeID, "String", "String"},
-            {Token::kAssignment, "", ""},
-            {Token::String, "Hello", "Hello"},
-            {Token::kSemiColon, "", ""},
-            {Token::ID, "g", "g"},
-            {Token::kOpenParen, "", ""},
-            {Token::ID, "y", "y"},
-            {Token::kColon, "", ""},
-            {Token::TypeID, "String", "String"},
-            {Token::kCloseParen, "", ""},
-            {Token::kColon, "", ""},
-            {Token::TypeID, "String", "String"},
-            {Token::kOpenBrace, "", ""},
-            {Token::ID, "y", "y"},
-            {Token::kDot, "", ""},
-            {Token::ID, "concat", "concat"},
-            {Token::kOpenParen, "", ""},
-            {Token::ID, "s", "s"},
-            {Token::kCloseParen, "", ""},
-            {Token::kCloseBrace, "", ""},
-            {Token::kSemiColon, "", ""},
-            {Token::kCloseBrace, "", ""},
-            {Token::kSemiColon, "", ""}
+         ", 0};", {
+            {Token::kClass, "", "", 0},
+            {Token::TypeID, "B", "B", 0},
+            {Token::kOpenBrace, "", "", 0},
+            {Token::ID, "s", "s", 0},
+            {Token::kColon, "", "", 0},
+            {Token::TypeID, "String", "String", 0},
+            {Token::kAssignment, "", "", 0},
+            {Token::String, "Hello", "Hello", 0},
+            {Token::kSemiColon, "", "", 0},
+            {Token::ID, "g", "g", 0},
+            {Token::kOpenParen, "", "", 0},
+            {Token::ID, "y", "y", 0},
+            {Token::kColon, "", "", 0},
+            {Token::TypeID, "String", "String", 0},
+            {Token::kCloseParen, "", "", 0},
+            {Token::kColon, "", "", 0},
+            {Token::TypeID, "String", "String", 0},
+            {Token::kOpenBrace, "", "", 0},
+            {Token::ID, "y", "y", 0},
+            {Token::kDot, "", "", 0},
+            {Token::ID, "concat", "concat", 0},
+            {Token::kOpenParen, "", "", 0},
+            {Token::ID, "s", "s", 0},
+            {Token::kCloseParen, "", "", 0},
+            {Token::kCloseBrace, "", "", 0},
+            {Token::kSemiColon, "", "", 0},
+            {Token::kCloseBrace, "", "", 0},
+            {Token::kSemiColon, "", "", 0}
         }},
     };
     for (auto& c : cases) {
         stringstream sstream(c.str);
-        Tokenizer tokenizer;
+        Tokenizer tokenizer(testDiag);
         auto toks = tokenizer.Tokenize(sstream);
         assert(c.toks.size() == toks.size());
         for (int i = 0; i < c.toks.size(); i++) {
@@ -602,29 +609,13 @@ void TestVirtualTable() {
     }
 }
 
-void TestTypeAttrs() {
-    auto father = make_shared<TypeAttr>(TypeAttr{"f"});
-    auto c1 = make_shared<TypeAttr>(TypeAttr{"c1", father});
-    auto c2 = make_shared<TypeAttr>(TypeAttr{"c2", father});
-    father->children.emplace_back(c1);
-    father->children.emplace_back(c2);
-
-    assert(c1->LeastCommonAncestor(c2).name == "f");
-    assert(c1->LeastCommonAncestor(father).name == "f");
-    assert(father->LeastCommonAncestor(c2).name == "f");
-    assert(c1->LeastCommonAncestor(c1).name == "c1");
-
-    assert(c1->Conforms("f"));
-//    assert(c1->Conforms(*father));
-}
-
-void TestSemanticChecking() {
+void TestSemanticCheckingPasses() {
     vector<Token> toks;
     ConstructProgTokens(toks, false, testFuncFeats, testFieldFeats);
-    Parser parser(toks);
+    Parser parser(testDiag, toks);
     auto prog = parser.ParseProgram();
     int clsNum = prog.classes.size();
-    PassContext passContext;
+    PassContext passContext(testDiag);
     try {
         // Test InstallBuiltin Pass
         InstallBuiltin installBuiltin;
@@ -634,25 +625,40 @@ void TestSemanticChecking() {
         // Test InitSymbolTable Pass
         InitSymbolTable initSymbolTable;
         initSymbolTable(prog, passContext);
-        assert(passContext.Get<ScopedTable<SymbolTable>>("symbol_table"));
+        assert(passContext.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table"));
 
         // Test BuildInheritanceTree Pass
         BuildInheritanceTree buildInheritanceTree;
         buildInheritanceTree(prog, passContext);
-        auto stable = passContext.Get<ScopedTable<SymbolTable>>("symbol_table");
-        stable->InitTraverse();
-        ENTER_SCOPE_GUARD((*stable), {
-            for (auto& cls : prog.classes) {
-                assert(!cls->parent.empty());
-                auto typeAttr = stable->Current().GetTypeAttr(cls->name);
-                assert(typeAttr->parent->name == "Object");
-            }
-        })
+        auto typeAdvisor = *passContext.Get<TypeAdvisor>("type_advisor");
+        for (auto& cls : prog.classes) {
+            typeAdvisor.Conforms(cls->name, "Object");
+        }
+
+        // Test TypeChecking Pass
+        TypeChecking typeChecking;
+        typeChecking(prog, passContext);
+
     } catch (exception& e) {
         cerr<< e.what() <<endl;
         assert(false);
     }
 }
+
+void TestFrontEnd() {
+    fstream file;
+    file.open("data/t", ios::in);
+    assert(file);
+    Tokenizer tokenizer(testDiag);
+    Parser parser(testDiag, tokenizer.Tokenize(file));
+    auto prog = parser.ParseProgram();
+    pass::PassManager::Register<ana::InstallBuiltin>();
+    pass::PassManager::Register<ana::InitSymbolTable>();
+    pass::PassManager::Register<ana::BuildInheritanceTree>();
+    pass::PassManager::Register<ana::TypeChecking>();
+    pass::PassManager::GetPassManager().Run();
+}
+
 
 int main() {
 //    TestMatchMultiple();
@@ -687,7 +693,7 @@ int main() {
 //    TestPassManager();
 //    TestVirtualTable();
 
-    TestTypeAttrs();
+//    TestSemanticCheckingPasses();
 
-    TestSemanticChecking();
+    TestFrontEnd();
 }

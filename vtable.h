@@ -22,7 +22,7 @@ class VirtualTable {
         if (table.find(type_index(typeid(obj))) == table.end()) {
             throw runtime_error(string("no available dispatch for type: ") + typeid(obj).name());
         }
-        table[type_index(typeid(obj))](obj, args...);
+        return table[type_index(typeid(obj))](obj, args...);
     }
 
     template<class ObjType>

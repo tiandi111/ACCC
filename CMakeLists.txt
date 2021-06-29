@@ -11,10 +11,12 @@ add_executable(cool
         tokenizer.h tokenizer.cpp
         analysis.h analysis.cpp
         stable.h
-        attrs.h attrs.cpp
+        attrs.h
         visitor.h
         vtable.h
         builtin.h builtin.cpp
+        typead.h typead.cpp
+        diag.h
         main.cpp)
 
 add_executable(unittest
@@ -25,8 +27,10 @@ add_executable(unittest
         tokenizer.h tokenizer.cpp
         analysis.h analysis.cpp
         stable.h
-        attrs.h attrs.cpp
+        attrs.h
         visitor.h
         vtable.h
         builtin.h builtin.cpp
+        typead.h typead.cpp
+        diag.h
         test/unit.h test/unit.cpp)

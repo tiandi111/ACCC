@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "repr.h"
+#include "diag.h"
 
 #define PassID(PassClass) std::type_index(typeid(PassClass))
 using namespace std;
@@ -21,7 +22,10 @@ namespace pass {
 
 class PassContext {
   public:
-    // todo: how to put type_index in pair
+    diag::Diagnosis& diag;
+
+    PassContext(diag::Diagnosis& _diag) : diag(_diag) {}
+
     unordered_map<string, pair<type_index, shared_ptr<void>>> map;
 
     template<class T>
@@ -44,12 +48,12 @@ class Pass {
     Pass() {}
     virtual ~Pass() {};
     virtual void Required() {};
-    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; };
+    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; }
 };
 
 class ProgramPass : public Pass {
   public:
-    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) {}
+    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; }
 };
 
 // todo: think, should we pass information by pass object or pass context?
