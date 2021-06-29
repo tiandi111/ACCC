@@ -12,25 +12,38 @@
 #include <istream>
 
 #include "token.h"
+#include "diag.h"
 
 using namespace std;
 
-extern unordered_map<string, Token> keywordMap;
-extern unordered_map<char, Token> tokenMap;
+namespace cool {
+
+namespace tok {
+
+extern unordered_map<string, Token::Type> keywordMap;
+extern unordered_map<char, Token::Type> tokenMap;
+extern unordered_map<Token::Type, string> tokenStr;
 
 class Tokenizer {
   private:
-//    vector<istream> ins;
+    int line;
+    int pos;
+    int fileno;
+    diag::Diagnosis& diag;
 
   public:
-     Tokenizer() {}
+    Tokenizer(diag::Diagnosis& _diag);
 
-     vector<Token> Tokenize(istream& in);
+    vector<Token> Tokenize(const string& file, istream& in);
 
-     Token TokDigit(istream& in);
-     Token TokAlpha(istream& in);
-     Token TokString(istream& in);
-     Token TokSpecial(istream& in);
+    Token TokDigit(istream& in);
+    Token TokAlpha(istream& in);
+    Token TokString(istream& in);
+    Token TokSpecial(istream& in);
 };
+
+} // namespace cool
+
+} // namespace tok
 
 #endif //COOL_TOKENIZER_H

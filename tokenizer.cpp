@@ -3,11 +3,7 @@
 //
 
 #include <algorithm>
-#include <fstream>
-#include <sstream>
-#include <iostream>
 #include <unordered_map>
-#include <string>
 
 #include "cctype"
 
@@ -15,72 +11,125 @@
 #include "tokenizer.h"
 
 using namespace std;
+using namespace cool;
+using namespace tok;
 
-unordered_map<string, Token> keywordMap = {
-    {"class", Token{Token::kClass, "", ""}},
-    {"if", Token{Token::kIf, "", ""}},
-    {"then", Token{Token::kThen, "", ""}},
-    {"else", Token{Token::kElse, "", ""}},
-    {"fi", Token{Token::kFi, "", ""}},
-    {"in", Token{Token::kIn, "", ""}},
-    {"inherits", Token{Token::kInheirits, "", ""}},
-    {"isvoid", Token{Token::kIsvoid, "", ""}},
-    {"let", Token{Token::kLet, "", ""}},
-    {"loop", Token{Token::kLoop, "", ""}},
-    {"pool", Token{Token::kPool, "", ""}},
-    {"while", Token{Token::kWhile, "", ""}},
-    {"case", Token{Token::kCase, "", ""}},
-    {"esac", Token{Token::kEsac, "", ""}},
-    {"new", Token{Token::kNew, "", ""}},
-    {"of", Token{Token::kOf, "", ""}},
-    {"not", Token{Token::kNot, "", ""}},
-    {"true", Token{Token::kTrue, "", ""}},
-    {"false", Token{Token::kFalse, "", ""}},
+unordered_map<string, Token::Type> tok::keywordMap = {
+    {"class", Token::kClass},
+    {"if", Token::kIf},
+    {"then", Token::kThen},
+    {"else", Token::kElse},
+    {"fi", Token::kFi},
+    {"in", Token::kIn},
+    {"inherits", Token::kInheirits},
+    {"isvoid", Token::kIsvoid},
+    {"let", Token::kLet},
+    {"loop", Token::kLoop},
+    {"pool", Token::kPool},
+    {"while", Token::kWhile},
+    {"case", Token::kCase},
+    {"esac", Token::kEsac},
+    {"new", Token::kNew},
+    {"of", Token::kOf},
+    {"not", Token::kNot},
+    {"true", Token::kTrue},
+    {"false", Token::kFalse},
 };
 
-unordered_map<char, Token> tokenMap = {
-    {':', Token{Token::kColon, "", ""}},
-    {';', Token{Token::kSemiColon, "", ""}},
-    {',', Token{Token::kComma, "", ""}},
-    {'.', Token{Token::kDot, "", ""}},
-    {'~', Token{Token::kNegate, "", ""}},
-    {'*', Token{Token::kMultiply, "", ""}},
-    {'+', Token{Token::kAdd, "", ""}},
-    {'-', Token{Token::kMinus, "", ""}},
-    {'/', Token{Token::kDivide, "", ""}},
-    {'(', Token{Token::kOpenParen, "", ""}},
-    {')', Token{Token::kCloseParen, "", ""}},
-    {'{', Token{Token::kOpenBrace, "", ""}},
-    {'}', Token{Token::kCloseBrace, "", ""}},
+unordered_map<char, Token::Type> tok::tokenMap = {
+    {':', Token::kColon},
+    {';', Token::kSemiColon},
+    {',', Token::kComma},
+    {'.', Token::kDot},
+    {'~', Token::kNegate},
+    {'*', Token::kMultiply},
+    {'+', Token::kAdd},
+    {'-', Token::kMinus},
+    {'/', Token::kDivide},
+    {'(', Token::kOpenParen},
+    {')', Token::kCloseParen},
+    {'{', Token::kOpenBrace},
+    {'}', Token::kCloseBrace},
 };
+
+unordered_map<Token::Type, string> tok::tokenStr = {
+    {Token::ID, "identifier"},
+    {Token::TypeID, "type identifier"},
+    {Token::Integer, "Integer"},
+    {Token::String, "String"},
+    {Token::kClass, "class"},
+    {Token::kIf, "if"},
+    {Token::kThen, "then"},
+    {Token::kElse, "else"},
+    {Token::kFi, "fi"},
+    {Token::kIn, "in"},
+    {Token::kInheirits, "inherits"},
+    {Token::kIsvoid, "isvoid"},
+    {Token::kLet, "let"},
+    {Token::kLoop, "loop"},
+    {Token::kPool, "pool"},
+    {Token::kWhile, "while"},
+    {Token::kCase, "case"},
+    {Token::kEsac, "esac"},
+    {Token::kNew, "new"},
+    {Token::kOf, "of"},
+    {Token::kNot, "not"},
+    {Token::kTrue, "true"},
+    {Token::kFalse, "false"},
+    {Token::kColon, ":"},
+    {Token::kSemiColon, ";"},
+    {Token::kComma, ","},
+    {Token::kDot, "."},
+    {Token::kNegate, "~"},
+    {Token::kMultiply, "*"},
+    {Token::kAdd, "+"},
+    {Token::kMinus, "-"},
+    {Token::kDivide, "/"},
+    {Token::kOpenParen, "("},
+    {Token::kCloseParen, ")"},
+    {Token::kOpenBrace, "{"},
+    {Token::kCloseBrace, "}"},
+    {Token::kLessThanOrEqual, "<="},
+    {Token::kLessThan, "<"},
+    {Token::kEqual, "="},
+};
+
+Tokenizer::Tokenizer(diag::Diagnosis& _diag) : diag(_diag), line(1), pos(1) {}
 
 Token Tokenizer::TokDigit(istream& in) {
     assert(isdigit(in.peek()));
+    int stPos = pos;
     string str;
-    while (isdigit(in.peek()))
+    while (isdigit(in.peek())) {
         str += char(in.get());
-    return Token(Token::Integer, str, str);
+        pos++;
+    }
+    return Token(Token::Integer, str, str, line, stPos, fileno);
 }
 
 Token Tokenizer::TokAlpha(istream& in) {
     assert(isalpha(in.peek()) || in.peek() == '_');
-    string str = {char(in.get())};
+    int stPos = pos;
+    string str = {};
     while (isalpha(in.peek()) || isdigit(in.peek()) || in.peek() == '_') {
         str += char(in.get());
+        pos++;
     }
     string lowerStr(str.begin(), str.end());
     bool capitalFirst = isupper(lowerStr.at(0));
     transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
     if (keywordMap.find(lowerStr) != keywordMap.end()) {
-        return keywordMap.at(lowerStr);
+        return Token(keywordMap.at(lowerStr), "", "", line, stPos, fileno);
     }
-    if (capitalFirst) return Token(Token::TypeID, str, str);
-    return Token(Token::ID, str, str);
+    if (capitalFirst) return Token(Token::TypeID, str, str, line, stPos, fileno);
+    return Token(Token::ID, str, str, line, stPos, fileno);
 }
 
 Token Tokenizer::TokString(istream& in) {
     assert(in.peek() == '"');
+    int stPos = pos;
     in.ignore(1);
+    pos++;
     string str;
     bool easc = false;
     while (in.good() && in.peek() != EOF) {
@@ -98,38 +147,46 @@ Token Tokenizer::TokString(istream& in) {
         } else {
             str += char(in.get());
         }
+        pos++;
     }
-    return Token(Token::String, str, str);
+    return Token(Token::String, str, str, line, stPos, fileno);
 }
 
 Token Tokenizer::TokSpecial(istream& in) {
+    int stPos = pos;
     char c = in.get();
+    pos++;
     switch (c) {
         case '<':
             if (in.peek() == '-') {
                 in.ignore(1);
-                return Token(Token::kAssignment, "", "");
+                pos++;
+                return Token(Token::kAssignment, "", "", line, stPos, fileno);
             }
             if (in.peek() == '=') {
                 in.ignore(1);
-                return Token(Token::kLessThanOrEqual, "", "");
+                pos++;
+                return Token(Token::kLessThanOrEqual, "", "", line, stPos, fileno);
             }
-            return Token(Token::kLessThan, "", "");
+            return Token(Token::kLessThan, "", "", line, stPos, fileno);
         case '=':
             if (in.peek() == '>') {
                 in.ignore(1);
-                return Token(Token::kEval, "", "");
+                pos++;
+                return Token(Token::kEval, "", "", line, stPos, fileno);
             }
-            return Token(Token::kEqual, "", "");
+            return Token(Token::kEqual, "", "", line, stPos, fileno);
         default:
             if (tokenMap.find(c) == tokenMap.end()) {
-                throw runtime_error("invalid character");
+                diag.EmitError(line, 0, string("invalid character: ") += c);
+                return Token(Token::SKIP, "", "", line, stPos, fileno);
             }
-            return tokenMap.at(c);
+            return Token(tokenMap.at(c), "", "", line, stPos, fileno);
     }
 }
 
-vector<Token> Tokenizer::Tokenize(istream& in) {
+vector<Token> Tokenizer::Tokenize(const string& file, istream& in) {
+    fileno = FileMapper::GetFileMapper().GetFileNo(file);
     vector<Token> toks;
 
     while (in.good() && in.peek() != EOF) {
@@ -142,9 +199,14 @@ vector<Token> Tokenizer::Tokenize(istream& in) {
         } else if (c == '"') {
             toks.emplace_back(TokString(in));
         } else if (isspace(c)) {
+            if (c == '\n') {
+                line++;
+                pos = 1;
+            } else pos++;
             in.ignore(1);
         } else {
-            toks.emplace_back(TokSpecial(in));
+            auto tok = TokSpecial(in);
+            if (!tok.Skip()) toks.emplace_back(tok);
         }
 
     }

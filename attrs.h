@@ -7,6 +7,9 @@
 
 #include <string>
 #include <vector>
+#include <memory>
+
+#include "repr.h"
 
 using namespace std;
 
@@ -28,18 +31,11 @@ struct IdAttr {
 
 struct TypeAttr {
     string name;
-    shared_ptr<TypeAttr> parent;
-    vector<shared_ptr<TypeAttr>> children;
-
-    shared_ptr<TypeAttr> LeastCommonAncestor(const shared_ptr<TypeAttr>& another) const;
-
-    bool Conforms(const string& type) const;
-
-    bool Equal(const string& type) const;
-
-    bool Equal(const TypeAttr& type) const;
-
-    static shared_ptr<TypeAttr> LeastCommonAncestor(vector<shared_ptr<TypeAttr>>& attrs);
+    string parent;
+    shared_ptr<repr::Class> cls;
+    inline string Name() { return cls->name; }
+    inline string Parent() { return cls->parent; }
+    inline bool Is(const string& type) { return cls->name == type; }
 };
 
 } // attr

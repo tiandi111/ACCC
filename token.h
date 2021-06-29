@@ -7,8 +7,13 @@
 
 #include <string>
 #include <utility>
+#include <unordered_map>
 
 using namespace std;
+
+namespace cool {
+
+namespace tok {
 
 struct Token {
     enum Type {
@@ -56,17 +61,53 @@ struct Token {
         kCloseBrace,
         kAssignment,
         kEval,
+        SKIP, // skipped token
         END
     };
     Type type;
     string str;
     string val;
+    int line = 0;
+    int pos = 0;
+    int fileno = 0;
 
-    Token(Type _type, string _str, string _val) : type(_type), str(std::move(_str)), val(std::move(_val)) {}
+    Token(Type _type, string _str, string _val, int _line, int _pos, int _fileno = -1)
+        : type(_type), str(std::move(_str)), val(std::move(_val)), line(_line), pos(_pos), fileno(_fileno) {
+        assert(type > ST && type < END);
+    }
 
-//    Token(Token const &tok) : type(tok.type), str(tok.str), val(tok.val) {}
-//
-//    Token(Token&& tok) : type(tok.type), str(move(tok.str)), val(move(tok.val)) {}
+    bool Skip() { return type == SKIP; }
 };
+
+class FileMapper {
+  private:
+    unordered_map<string, int> name2no;
+    unordered_map<int, string> no2name;
+
+public:
+    static FileMapper& GetFileMapper() {
+        static FileMapper fileMapper;
+        return fileMapper;
+    }
+
+    int GetFileNo(const string& fname) {
+        if (name2no.find(fname) == name2no.end()) {
+            name2no.insert({fname, name2no.size()});
+            no2name.insert({no2name.size(), fname});
+        }
+        return name2no.at(fname);
+    }
+
+    string GetFileName(int fileno) {
+        if (fileno == -1) return "";
+        if (no2name.find(fileno) == no2name.end()) throw runtime_error("invalid file number");
+        return no2name.at(fileno);
+    }
+};
+
+} // namespace tok
+
+} // namespace cool
+
 
 #endif //COOL_TOKEN_H

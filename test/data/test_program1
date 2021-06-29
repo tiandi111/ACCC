@@ -1,0 +1,22 @@
+Class Base {
+    a : Int;
+    b : String;
+    c : Bool;
+    d : IO;
+
+    Do(arg1 : Int, arg2 : Int) : Int {
+        {
+            temp <- arg1 + arg2;
+            d.out_int(temp / 2);
+        }
+    };
+};
+
+Class Derived1 inherits Base {
+    Do(arg1 : Int, arg2 : Int) : Int {
+        {
+            temp <- arg1 - arg2;
+            d.out_int(temp / 2);
+        }
+    };
+};

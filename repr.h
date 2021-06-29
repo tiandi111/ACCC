@@ -66,13 +66,13 @@ struct Let : public Expr {
 };
 
 struct Case : public Expr {
-    struct branch {
+    struct Branch {
         string id;
         string type;
         shared_ptr<Expr> expr;
     };
     shared_ptr<Expr> expr;
-    vector<shared_ptr<branch>> branches;
+    vector<shared_ptr<Branch>> branches;
 };
 
 struct New : public Expr {
