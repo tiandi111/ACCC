@@ -59,39 +59,40 @@ using namespace tok;
 
 class ParsingResultChecker : public ExprVisitor<bool> {
   public:
-    bool Visit(repr::Program &prog) { return true; }
-    bool Visit(repr::Class &cls) { return true;}
-    bool Visit(repr::FuncFeature &feat) { return true; }
-    bool Visit(repr::FieldFeature &feat) { return true; }
-    bool Visit(repr::Formal &form) { return true; }
-    bool Visit(repr::Let::Formal &form) { return true; }
-    bool Visit(repr::Expr& expr) { return ExprVisitor<bool>::Visit(expr); }
-    bool Visit(shared_ptr<repr::Expr>& expr) { return ExprVisitor<bool>::Visit(*expr); }
-    bool Visit_(repr::Assign& expr) { return true; };
-    bool Visit_(repr::Add& expr) { return true; };
-    bool Visit_(repr::Block& expr) { return true; };
-    bool Visit_(repr::Case& expr) { return true; };
-    bool Visit(repr::Case::Branch& branch) { return true; };
-    bool Visit_(repr::Call& expr) { return true; };
-    bool Visit_(repr::Divide& expr) { return true; };
-    bool Visit_(repr::Equal& expr) { return true; };
-    bool Visit_(repr::False& expr) { return true; };
-    bool Visit_(repr::ID& expr) { return true; };
-    bool Visit_(repr::IsVoid& expr) { return true; };
-    bool Visit_(repr::Integer& expr) { return true; };
-    bool Visit_(repr::If& expr) { return true; };
-    bool Visit_(repr::LessThanOrEqual& expr) { return true; };
-    bool Visit_(repr::LessThan& expr) { return true; };
-    bool Visit_(repr::Let& expr) { return true; };
-    bool Visit_(repr::MethodCall& expr) { return true; };
-    bool Visit_(repr::Multiply& expr) { return true; };
-    bool Visit_(repr::Minus& expr) { return true; };
-    bool Visit_(repr::Negate& expr) { return true; };
-    bool Visit_(repr::New& expr) { return true; };
-    bool Visit_(repr::Not& expr) { return true; };
-    bool Visit_(repr::String& expr) { return true; };
-    bool Visit_(repr::True& expr) { return true; };
-    bool Visit_(repr::While& expr) { return true; };
+    bool Visit(repr::Program &prog);
+    bool Visit(repr::Class &cls);
+    bool Visit(repr::FuncFeature &feat);
+    bool Visit(repr::FieldFeature &feat);
+    bool Visit(repr::Formal &form);
+    bool Visit(repr::Let::Formal &form);
+    bool Visit(repr::Expr& expr);
+    bool Visit(shared_ptr<repr::Expr>& expr);
+    bool Visit_(repr::Assign& expr);
+    bool Visit_(repr::Add& expr);
+    bool Visit_(repr::Block& expr);
+    bool VisitBinary(repr::Binary& expr);
+    bool Visit_(repr::Case& expr);
+    bool Visit(repr::Case::Branch& branch);
+    bool Visit_(repr::Call& expr);
+    bool Visit_(repr::Divide& expr);
+    bool Visit_(repr::Equal& expr);
+    bool Visit_(repr::False& expr);
+    bool Visit_(repr::ID& expr);
+    bool Visit_(repr::IsVoid& expr);
+    bool Visit_(repr::Integer& expr);
+    bool Visit_(repr::If& expr);
+    bool Visit_(repr::LessThanOrEqual& expr);
+    bool Visit_(repr::LessThan& expr);
+    bool Visit_(repr::Let& expr);
+    bool Visit_(repr::MethodCall& expr);
+    bool Visit_(repr::Multiply& expr);
+    bool Visit_(repr::Minus& expr);
+    bool Visit_(repr::Negate& expr);
+    bool Visit_(repr::New& expr);
+    bool Visit_(repr::Not& expr);
+    bool Visit_(repr::String& expr);
+    bool Visit_(repr::True& expr);
+    bool Visit_(repr::While& expr);
 };
 
 class Parser {

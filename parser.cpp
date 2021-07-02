@@ -17,6 +17,100 @@ using namespace parser;
 using namespace repr;
 using namespace tok;
 
+bool ParsingResultChecker::Visit(repr::Program &prog) {
+    for (auto& cls : prog.classes) if (!cls || !Visit(*cls)) return false;
+    return true;
+}
+
+bool ParsingResultChecker::Visit(repr::Class &cls) {
+    if (cls.name.empty()) return false;
+    for (auto& feat : cls.fields) if (!feat || !Visit(*feat)) return false;
+    for (auto& feat : cls.funcs) if (!feat || !Visit(*feat)) return false;
+    return true;
+}
+
+bool ParsingResultChecker::Visit(repr::FuncFeature &feat) {
+    for (auto& arg : feat.args) if (!arg || !Visit(*arg)) return false;
+    return !feat.name.empty() && !feat.type.empty() && feat.expr && Visit(*feat.expr);
+}
+
+bool ParsingResultChecker::Visit(repr::FieldFeature &feat) {
+    return !feat.name.empty() && !feat.type.empty() && (!feat.expr || (feat.expr && Visit(*feat.expr)));
+}
+
+bool ParsingResultChecker::Visit(repr::Formal &form) {
+    return !form.name.empty() && !form.type.empty();
+}
+
+bool ParsingResultChecker::Visit(repr::Let::Formal &form) {
+    return !form.name.empty() && !form.type.empty() && (!form.expr || (form.expr && Visit(*form.expr)));
+
+}
+
+bool ParsingResultChecker::Visit(repr::Expr& expr) {
+    return ExprVisitor<bool>::Visit(expr);
+}
+
+bool ParsingResultChecker::Visit(shared_ptr<repr::Expr>& expr) {
+    return expr && ExprVisitor<bool>::Visit(*expr);
+}
+
+bool ParsingResultChecker::Visit_(repr::Assign& expr) {
+    return expr.id && Visit_(*expr.id) && Visit(expr.expr);
+}
+
+bool ParsingResultChecker::Visit_(repr::Add& expr) {
+    return Visit(expr.left) && Visit(expr.right);
+}
+
+bool ParsingResultChecker::Visit_(repr::Block& expr) {
+    for (auto& e : expr.exprs) if (!Visit(e)) return false;
+    return true;
+}
+
+bool ParsingResultChecker::VisitBinary(repr::Binary& expr) {
+    return Visit(expr.left) && Visit(expr.right);
+}
+
+bool ParsingResultChecker::Visit_(repr::Case& expr) {
+    for (auto& branch : expr.branches) if (!branch || !Visit(*branch)) return false;
+    return Visit(expr.expr);
+}
+
+bool ParsingResultChecker::Visit(repr::Case::Branch& branch) {
+    return !branch.id.empty() && !branch.type.empty() && Visit(branch.expr);
+}
+
+bool ParsingResultChecker::Visit_(repr::Call& expr) {
+    for (auto& arg : expr.args) if (!arg && !Visit(*arg)) return false;
+    return expr.id && Visit_(*expr.id);
+}
+
+bool ParsingResultChecker::Visit_(repr::Divide& expr) { return VisitBinary(expr); }
+
+bool ParsingResultChecker::Visit_(repr::Equal& expr) { return VisitBinary(expr); }
+bool ParsingResultChecker::Visit_(repr::False& expr) { return true; }
+bool ParsingResultChecker::Visit_(repr::ID& expr) { return !expr.name.empty(); }
+bool ParsingResultChecker::Visit_(repr::IsVoid& expr) { return Visit(expr.expr); }
+bool ParsingResultChecker::Visit_(repr::Integer& expr) { return true; }
+
+bool ParsingResultChecker::Visit_(repr::If& expr) {
+    return Visit(expr.ifExpr) && Visit(expr.thenExpr) && Visit(expr.elseExpr);
+}
+
+bool ParsingResultChecker::Visit_(repr::LessThanOrEqual& expr) { return VisitBinary(expr); }
+bool ParsingResultChecker::Visit_(repr::LessThan& expr) { return VisitBinary(expr); }
+bool ParsingResultChecker::Visit_(repr::Let& expr) { return true; }
+bool ParsingResultChecker::Visit_(repr::MethodCall& expr) { return VisitBinary(expr); }
+bool ParsingResultChecker::Visit_(repr::Multiply& expr) { return VisitBinary(expr); }
+bool ParsingResultChecker::Visit_(repr::Minus& expr) { return VisitBinary(expr); }
+bool ParsingResultChecker::Visit_(repr::Negate& expr) { return Visit(expr.expr); }
+bool ParsingResultChecker::Visit_(repr::New& expr) { return !expr.type.empty(); }
+bool ParsingResultChecker::Visit_(repr::Not& expr) { return Visit(expr.expr); }
+bool ParsingResultChecker::Visit_(repr::String& expr) { return true; }
+bool ParsingResultChecker::Visit_(repr::True& expr) { return true; }
+bool ParsingResultChecker::Visit_(repr::While& expr) { return Visit(expr.whileExpr) && Visit(expr.loopExpr); }
+
 Parser::Parser(diag::Diagnosis& _diag, vector<Token> _toks)
 : diag(_diag), toks(std::move(_toks)), pos(0) {
     scopeEnds.push(toks.size());

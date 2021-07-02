@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 add_executable(cool
         parser.h parser.cpp
         repr.h
-        token.h
+        token.h token.cpp
         pass.h pass.cpp
         tokenizer.h tokenizer.cpp
         analysis.h analysis.cpp
@@ -22,7 +22,7 @@ add_executable(cool
 add_executable(unittest
         parser.h parser.cpp
         repr.h
-        token.h
+        token.h token.cpp
         pass.h pass.cpp
         tokenizer.h tokenizer.cpp
         analysis.h analysis.cpp

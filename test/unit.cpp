@@ -98,20 +98,20 @@ void TestParseNew() {
 void TestParseCall() {
     Parser parser(testDiag, {
         // case 1
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kOpenParen, "test", "test", 0, 0},
         {Token::kCloseParen, "test", "test", 0, 0},
         // case 2
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kOpenParen, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kCloseParen, "test", "test", 0, 0},
         // case 3
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kOpenParen, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kComma, "", "", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kCloseParen, "test", "test", 0, 0}
     });
     try {
@@ -144,7 +144,7 @@ void TestParseCase() {
     Parser parser(testDiag, {
         // case 1
         {Token::kCase, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kOf, "test", "test", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
@@ -155,7 +155,7 @@ void TestParseCase() {
         {Token::kEsac, "test", "test", 0, 0},
         // case 2
         {Token::kCase, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kOf, "test", "test", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
@@ -187,33 +187,33 @@ void TestParseLet() {
         {Token::kLet, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "", "", 0, 0},
+        {Token::TypeID, "test", "test", 0, 0},
         {Token::kIn, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         // case 2
         {Token::kLet, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "", "", 0, 0},
+        {Token::TypeID, "test", "test", 0, 0},
         {Token::kAssignment, "", "", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kIn, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         // case 3
         {Token::kLet, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "", "", 0, 0},
+        {Token::TypeID, "test", "test", 0, 0},
         {Token::kAssignment, "", "", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kComma, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "", "", 0, 0},
+        {Token::TypeID, "test", "test", 0, 0},
         {Token::kAssignment, "", "", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
         {Token::kIn, "test", "test", 0, 0},
-        {Token::ID, "", "", 0, 0},
+        {Token::ID, "test", "test", 0, 0},
     });
     try {
         auto let1 = parser.ParseLet();
@@ -664,7 +664,7 @@ void TestSemanticCheckingPasses() {
         // Test BuildInheritanceTree Pass
         BuildInheritanceTree buildInheritanceTree;
         buildInheritanceTree(prog, passContext);
-        auto typeAdvisor = *passContext.Get<TypeAdvisor>("type_advisor");
+        auto typeAdvisor = *passContext.Get<type::TypeAdvisor>("type_advisor");
         for (auto& cls : prog.classes) {
             typeAdvisor.Conforms(cls->name, "Object");
         }

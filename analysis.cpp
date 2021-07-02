@@ -168,7 +168,7 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
     class Visitor : public visitor::ProgramVisitor, visitor::ClassVisitor {
       public:
         ScopedTableSpecializer<SymbolTable>& stable;
-        TypeAdvisor typeAdvisor;
+        type::TypeAdvisor typeAdvisor;
         unordered_map<string, shared_ptr<repr::Class>> map;
 
         Visitor(ScopedTableSpecializer<SymbolTable>& _stable) : stable(_stable), typeAdvisor("Object") {
@@ -200,7 +200,7 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
     auto stable = ctx.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table");
     Visitor vis(*stable);
     vis.Visit(prog);
-    ctx.Set<TypeAdvisor>("type_advisor", vis.typeAdvisor);
+    ctx.Set<type::TypeAdvisor>("type_advisor", vis.typeAdvisor);
     return prog;
 }
 
@@ -216,9 +216,9 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
 
       public:
         ScopedTableSpecializer<SymbolTable>& stable;
-        TypeAdvisor& typeAdvisor;
+        type::TypeAdvisor& typeAdvisor;
 
-        Visitor(ScopedTableSpecializer<SymbolTable>& _stable, TypeAdvisor& _typeAdvisor)
+        Visitor(ScopedTableSpecializer<SymbolTable>& _stable, type::TypeAdvisor& _typeAdvisor)
         : stable(_stable), typeAdvisor(_typeAdvisor) {
             stable.InitTraverse();
         }
@@ -430,7 +430,7 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
     };
 
     auto stable = ctx.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table");
-    auto typeAdvisor = ctx.Get<TypeAdvisor>("type_advisor");
+    auto typeAdvisor = ctx.Get<type::TypeAdvisor>("type_advisor");
     Visitor vis(*stable, *typeAdvisor);
     vis.Visit(prog);
     return prog;
