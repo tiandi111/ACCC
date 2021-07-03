@@ -30,8 +30,10 @@ class TypeAdvisor {
     shared_ptr<Node> root;
     unordered_map<string, shared_ptr<Node>> map;
 
+    shared_ptr<Node> get(const string& type);
+
   public:
-    TypeAdvisor(const string& rootType);
+    TypeAdvisor(shared_ptr<repr::Class> rootClass);
 
     bool Contains(const string& type);
 

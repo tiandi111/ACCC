@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 14)
 
 add_executable(cool
         parser.h parser.cpp
-        repr.h
+        repr.h repr.cpp
         token.h token.cpp
         pass.h pass.cpp
         tokenizer.h tokenizer.cpp
@@ -16,12 +16,12 @@ add_executable(cool
         vtable.h
         builtin.h builtin.cpp
         typead.h typead.cpp
-        diag.h
+        diag.h diag.cpp
         main.cpp)
 
 add_executable(unittest
         parser.h parser.cpp
-        repr.h
+        repr.h repr.cpp
         token.h token.cpp
         pass.h pass.cpp
         tokenizer.h tokenizer.cpp
@@ -32,5 +32,5 @@ add_executable(unittest
         vtable.h
         builtin.h builtin.cpp
         typead.h typead.cpp
-        diag.h
+        diag.h diag.cpp
         test/unit.h test/unit.cpp)

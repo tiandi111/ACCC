@@ -17,23 +17,23 @@ namespace cool {
 
 namespace builtin {
 
-extern repr::Class Object;
 extern repr::FuncFeature Abort;
 extern repr::FuncFeature TypeName;
 extern repr::FuncFeature Copy;
+extern repr::Class Object;
 
-extern repr::Class IO;
 extern repr::FuncFeature OutString;
 extern repr::FuncFeature OutInt;
 extern repr::FuncFeature InString;
 extern repr::FuncFeature InInt;
+extern repr::Class IO;
 
 extern repr::Class Int;
 
-extern repr::Class String;
 extern repr::FuncFeature Length;
 extern repr::FuncFeature Concat;
 extern repr::FuncFeature Substr;
+extern repr::Class String;
 
 extern repr::Class Bool;
 

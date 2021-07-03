@@ -155,8 +155,6 @@ void TestPassManager();
 
 void TestVirtualTable();
 
-// todo: typead test
-
 void TestSemanticCheckingPasses();
 
 void TestFrontEnd();

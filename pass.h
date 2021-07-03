@@ -35,7 +35,7 @@ class PassContext {
 
     template<class T>
     shared_ptr<T> Get(string name) {
-        if (map.find(name) == map.end()) return nullptr;
+        if (map.find(name) == map.end()) throw runtime_error("object '" + name + "' not found");
         if (map.find(name)->second.first != type_index(typeid(T))) {
             throw runtime_error("get object of wrong type");
         }
@@ -92,7 +92,7 @@ class PassManager {
         GetPassManager().dependency.emplace_back(make_pair(PassID(Requirer), PassID(Requiree)));
     }
 
-    static void Run();
+    static void Run(repr::Program& prog, PassContext& ctx);
 
     static void Refresh();
 

@@ -13,6 +13,7 @@
 using namespace std;
 using namespace cool;
 using namespace tok;
+using namespace diag;
 
 unordered_map<string, Token::Type> tok::keywordMap = {
     {"class", Token::kClass},
@@ -186,7 +187,7 @@ Token Tokenizer::TokSpecial(istream& in) {
 }
 
 vector<Token> Tokenizer::Tokenize(const string& file, istream& in) {
-    fileno = FileMapper::GetFileMapper().GetFileNo(file);
+    fileno = FileMapper::GetFileNo(file);
     vector<Token> toks;
 
     while (in.good() && in.peek() != EOF) {

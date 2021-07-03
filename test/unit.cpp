@@ -561,6 +561,8 @@ void TestRequiredPass() {
 }
 
 void TestPassManager() {
+    Program prog({});
+    PassContext ctx(testDiag);
     {
         PassManager::Refresh();
         class TestPassA : public ProgramPass {
@@ -588,7 +590,7 @@ void TestPassManager() {
         PassManager::Register<TestPassB>();
         PassManager::Register<TestPassC>();
         PassManager::Register<TestPassD>();
-        PassManager::Run();
+        PassManager::Run(prog, ctx);
     }
     {
         PassManager::Refresh();
@@ -606,7 +608,7 @@ void TestPassManager() {
         PassManager::Register<TestPassA>();
         PassManager::Register<TestPassB>();
         try {
-            PassManager::Run();
+            PassManager::Run(prog, ctx);
             assert(false);
         } catch (exception& e) {}
     }
@@ -666,7 +668,7 @@ void TestSemanticCheckingPasses() {
         buildInheritanceTree(prog, passContext);
         auto typeAdvisor = *passContext.Get<type::TypeAdvisor>("type_advisor");
         for (auto& cls : prog.classes) {
-            typeAdvisor.Conforms(cls->name, "Object");
+            typeAdvisor.Conforms(cls->name.val, "Object");
         }
 
         // Test TypeChecking Pass
@@ -680,7 +682,7 @@ void TestSemanticCheckingPasses() {
 }
 
 void TestFrontEnd() {
-    string filename = "data/t";
+    string filename = "../test/data/test_program";
     fstream file;
     file.open(filename, ios::in);
     assert(file);
@@ -688,48 +690,49 @@ void TestFrontEnd() {
     Tokenizer tokenizer(diagnosis);
     Parser parser(diagnosis, tokenizer.Tokenize(filename, file));
     auto prog = parser.ParseProgram();
+    PassContext passContext(diagnosis);
+    pass::PassManager::Register<ana::InstallBuiltin>();
+    pass::PassManager::Register<ana::InitSymbolTable>();
+    pass::PassManager::Register<ana::BuildInheritanceTree>();
+    pass::PassManager::Register<ana::TypeChecking>();
+    pass::PassManager::Run(prog, passContext);
     diagnosis.Output(cout);
-//    pass::PassManager::Register<ana::InstallBuiltin>();
-//    pass::PassManager::Register<ana::InitSymbolTable>();
-//    pass::PassManager::Register<ana::BuildInheritanceTree>();
-//    pass::PassManager::Register<ana::TypeChecking>();
-//    pass::PassManager::GetPassManager().Run();
 }
 
 
 int main() {
-    TestMatchMultiple();
-
-    TestParseID();
-    TestParseUnary();
-    TestParseBinary();
-    TestParseNew();
-    TestParseCall();
-    TestParseAssign();
-    TestParseCase();
-    TestParseLet();
-    TestParseWhile();
-    TestParseBlock();
-    TestParseIf();
-
-    TestParseExpr();
-    TestParseFormal();
-    TestParseFuncFeature();
-    TestParseFieldFeature();
-    TestParseClass();
-    TestParseProgram();
-
-    TestTokDigit();
-    TestTokAlpha();
-    TestTokString();
-    TestTokSpecial();
-    TestTokenizer();
+//    TestMatchMultiple();
+//
+//    TestParseID();
+//    TestParseUnary();
+//    TestParseBinary();
+//    TestParseNew();
+//    TestParseCall();
+//    TestParseAssign();
+//    TestParseCase();
+//    TestParseLet();
+//    TestParseWhile();
+//    TestParseBlock();
+//    TestParseIf();
+//
+//    TestParseExpr();
+//    TestParseFormal();
+//    TestParseFuncFeature();
+//    TestParseFieldFeature();
+//    TestParseClass();
+//    TestParseProgram();
+//
+//    TestTokDigit();
+//    TestTokAlpha();
+//    TestTokString();
+//    TestTokSpecial();
+//    TestTokenizer();
 //
 //    TestRegisterPass();
 //    TestRequiredPass();
 //    TestPassManager();
 //    TestVirtualTable();
-
+//
 //    TestSemanticCheckingPasses();
 
     TestFrontEnd();

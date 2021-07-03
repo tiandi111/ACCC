@@ -30,20 +30,20 @@ namespace parser {
 #define PARSER_STAT_IF_FALSE_EMIT_DIAG_SKIP(pred, stat, msg) \
     if (pred) stat; \
     else { \
-        diag.EmitError(FileName(), TextLine(), TextPos(), msg); \
+        diag.EmitError(GetTextInfo(), msg); \
         Consume(); \
     } \
 
 #define PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(pred, stat, msg, rItem) \
     if (pred) stat; \
     else { \
-        diag.EmitError(FileName(), TextLine(), TextPos(), msg); \
+        diag.EmitError(GetTextInfo(), msg); \
         return rItem; \
     } \
 
 #define PARSER_IF_FALSE_EMIT_DIAG_RETURN(pred, msg, rItem) \
     if (!pred) {\
-        diag.EmitError(FileName(), TextLine(), TextPos(), msg);\
+        diag.EmitError(GetTextInfo(), msg);\
         return rItem;\
     }\
 
@@ -67,6 +67,7 @@ class ParsingResultChecker : public ExprVisitor<bool> {
     bool Visit(repr::Let::Formal &form);
     bool Visit(repr::Expr& expr);
     bool Visit(shared_ptr<repr::Expr>& expr);
+    bool Visit_(repr::LinkBuiltin& expr);
     bool Visit_(repr::Assign& expr);
     bool Visit_(repr::Add& expr);
     bool Visit_(repr::Block& expr);
@@ -112,11 +113,7 @@ class Parser {
 
     int Pos();
 
-    int TextLine();
-
-    int TextPos();
-
-    string FileName();
+    diag::TextInfo GetTextInfo();
 
     void Consume();
 

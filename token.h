@@ -9,6 +9,8 @@
 #include <utility>
 #include <unordered_map>
 
+#include "diag.h"
+
 using namespace std;
 
 namespace cool {
@@ -67,26 +69,11 @@ struct Token {
     Type type;
     string str;
     string val;
-    int line = 0;
-    int pos = 0;
-    int fileno = 0;
+    diag::TextInfo textInfo;
 
     Token(Type _type, string _str, string _val, int _line, int _pos, int _fileno = -1);
 
     bool Skip();
-};
-
-class FileMapper {
-  private:
-    unordered_map<string, int> name2no;
-    unordered_map<int, string> no2name;
-
-  public:
-    static FileMapper& GetFileMapper();
-
-    int GetFileNo(const string& fname);
-
-    string GetFileName(int fileno);
 };
 
 } // namespace tok

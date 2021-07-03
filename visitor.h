@@ -56,6 +56,7 @@ class ExprVisitor {
     }
 
     #define EXPR_VISITOR_DEFAULT { VisitDefault_(); }
+    virtual R Visit_(repr::LinkBuiltin& expr, Args... args) EXPR_VISITOR_DEFAULT;
     virtual R Visit_(repr::Assign& expr, Args... args) EXPR_VISITOR_DEFAULT;
     virtual R Visit_(repr::Add& expr, Args... args) EXPR_VISITOR_DEFAULT;
     virtual R Visit_(repr::Block& expr, Args... args) EXPR_VISITOR_DEFAULT;
@@ -93,6 +94,7 @@ class ExprVisitor {
 
     static VTable GetVTable() {
         static VTable vtable;
+        EXPR_VISITOR_DISPATCH(repr::LinkBuiltin);
         EXPR_VISITOR_DISPATCH(repr::Assign);
         EXPR_VISITOR_DISPATCH(repr::Add);
         EXPR_VISITOR_DISPATCH(repr::Block);

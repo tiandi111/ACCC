@@ -16,6 +16,25 @@ namespace cool {
 
 namespace diag {
 
+struct TextInfo {
+    int line;
+    int pos;
+    int fileno;
+};
+
+class FileMapper {
+  private:
+    unordered_map<string, int> name2no;
+    unordered_map<int, string> no2name;
+
+  public:
+    static FileMapper& GetFileMapper();
+
+    static int GetFileNo(const string& fname);
+
+    static string GetFileName(int fileno);
+};
+
 class Diagnosis {
   private:
     enum level {
@@ -64,6 +83,18 @@ class Diagnosis {
 
     void EmitFatal(const string& _file, int line, int pos, const string& msg) {
         rows.emplace_back(row{_file, line, pos, FATAL, msg});
+    }
+
+    void EmitWarn(TextInfo textInfo, const string& msg) {
+        EmitWarn(FileMapper::GetFileName(textInfo.fileno), textInfo.line, textInfo.pos, msg);
+    }
+
+    void EmitError(TextInfo textInfo, const string& msg) {
+        EmitError(FileMapper::GetFileName(textInfo.fileno), textInfo.line, textInfo.pos, msg);
+    }
+
+    void EmitFatal(TextInfo textInfo, const string& msg) {
+        EmitFatal(FileMapper::GetFileName(textInfo.fileno), textInfo.line, textInfo.pos, msg);
     }
 
     int Size() { return rows.size(); }

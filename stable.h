@@ -97,6 +97,7 @@ class SymbolTable {
     }
 
     shared_ptr<attr::IdAttr> GetIdAttr(const string& name)  {
+        if (!ContainsId(name)) return nullptr;
         return ids.at(name);
     }
 
@@ -105,7 +106,7 @@ class SymbolTable {
     }
 
     void Insert(attr::IdAttr attr) {
-        ids[attr.name] = make_shared<attr::IdAttr>(attr);
+        ids.insert({attr.name, make_shared<attr::IdAttr>(attr)});
     }
 
     shared_ptr<repr::Class> GetClass() {
@@ -127,7 +128,7 @@ class ScopedTableSpecializer<SymbolTable> : public ScopedTable<SymbolTable> {
     shared_ptr<attr::IdAttr> GetIdAttr(const string& name) {
         for (int i = stack.size()-1; i>=0; i--) {
             auto attr = val.at(stack.at(i)).GetIdAttr(name);
-            if (!attr) return attr;
+            if (attr) return attr;
         }
         return nullptr;
     }
@@ -139,6 +140,7 @@ class ScopedTableSpecializer<SymbolTable> : public ScopedTable<SymbolTable> {
     shared_ptr<repr::Class> GetClass() {
         return Current().GetClass();
     }
+
 };
 
 

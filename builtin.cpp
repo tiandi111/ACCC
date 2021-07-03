@@ -10,108 +10,127 @@
 using namespace std;
 using namespace cool;
 using namespace builtin;
+using namespace repr;
 
-repr::Class builtin::Object = {
-    "Object",
-    "",
-    {
-        make_shared<repr::FuncFeature>(Abort),
-        make_shared<repr::FuncFeature>(TypeName),
-        make_shared<repr::FuncFeature>(Copy),
+FuncFeature builtin::Abort = {
+    StringAttr("abort"),
+    StringAttr("Object"),
+    make_shared<LinkBuiltin>(LinkBuiltin("Object")),
+    {}
+};
+
+FuncFeature builtin::TypeName = {
+    StringAttr("type_name"),
+    StringAttr("String"),
+    make_shared<LinkBuiltin>(LinkBuiltin("String")),
+    {}
+};
+
+FuncFeature builtin::Copy = {
+    StringAttr("copy"),
+    StringAttr("SELF_TYPE"),
+    make_shared<LinkBuiltin>(LinkBuiltin("SELF_TYPE")),
+    {}
+};
+
+Class builtin::Object = {
+   StringAttr("Object"),
+   StringAttr(""),
+   {
+        make_shared<FuncFeature>(Abort),
+        make_shared<FuncFeature>(TypeName),
+        make_shared<FuncFeature>(Copy),
     },
     {},
 };
 
-repr::FuncFeature builtin::Abort = {
-    "abort",
-    "Object"
+FuncFeature builtin::OutString = {
+    StringAttr("out_string"),
+    StringAttr("SELF_TYPE"),
+    make_shared<LinkBuiltin>(LinkBuiltin("SELF_TYPE")),
+    {make_shared<Formal>(Formal(StringAttr("x"), StringAttr("String")))}
 };
 
-repr::FuncFeature builtin::TypeName = {
-    "type_name",
-    "String"
+FuncFeature builtin::OutInt = {
+    StringAttr("out_int"),
+    StringAttr("SELF_TYPE"),
+    make_shared<LinkBuiltin>(LinkBuiltin("SELF_TYPE")),
+    {make_shared<Formal>(Formal(StringAttr("x"), StringAttr("Int")))}
 };
 
-repr::FuncFeature builtin::Copy = {
-    "copy",
-    "SELF_TYPE"
+FuncFeature builtin::InString = {
+    StringAttr("in_string"),
+    StringAttr("String"),
+    make_shared<LinkBuiltin>(LinkBuiltin("String")),
+    {}
 };
 
-repr::Class builtin::IO = {
-    "IO",
-    "Object",
+FuncFeature builtin::InInt = {
+    StringAttr("in_int"),
+    StringAttr("Int"),
+    make_shared<LinkBuiltin>(LinkBuiltin("Int")),
+    {}
+};
+
+Class builtin::IO = {
+    StringAttr("IO"),
+    StringAttr("Object"),
     {
-        make_shared<repr::FuncFeature>(OutString),
-        make_shared<repr::FuncFeature>(OutInt),
-        make_shared<repr::FuncFeature>(InString),
-        make_shared<repr::FuncFeature>(InInt),
+        make_shared<FuncFeature>(OutString),
+        make_shared<FuncFeature>(OutInt),
+        make_shared<FuncFeature>(InString),
+        make_shared<FuncFeature>(InInt),
     },
     {},
 };
 
-repr::FuncFeature builtin::OutString = {
-    "out_string",
-    "SELF_TYPE",
-    nullptr,
-    {make_shared<repr::Formal>(repr::Formal{"x", "String"})}
-};
-
-repr::FuncFeature builtin::OutInt = {
-    "out_int",
-    "SELF_TYPE",
-    nullptr,
-    {make_shared<repr::Formal>(repr::Formal{"x", "Int"})}
-};
-
-repr::FuncFeature builtin::InString = {
-    "in_string",
-    "String",
-};
-
-repr::FuncFeature builtin::InInt = {
-    "in_int",
-    "Int",
-};
-
-repr::Class builtin::Int = {
-    "Int",
-    "Object"
-};
-
-repr::Class builtin::String = {
-    "String",
-    "Object",
-    {
-        make_shared<repr::FuncFeature>(Length),
-        make_shared<repr::FuncFeature>(Concat),
-        make_shared<repr::FuncFeature>(Substr),
-    },
+Class builtin::Int = {
+    StringAttr("Int"),
+    StringAttr("Object"),
     {},
+    {}
 };
 
-repr::FuncFeature builtin::Length = {
-    "length",
-    "Int",
+FuncFeature builtin::Length = {
+    StringAttr("length"),
+    StringAttr("Int"),
+    make_shared<LinkBuiltin>(LinkBuiltin("Int")),
+    {}
 };
 
-repr::FuncFeature builtin::Concat = {
-    "String",
-    "String",
+FuncFeature builtin::Concat = {
+    StringAttr("String"),
+    StringAttr("String"),
+    make_shared<LinkBuiltin>(LinkBuiltin("String")),
+    {}
 };
 
-repr::FuncFeature builtin::Substr = {
-    "substr",
-    "String",
-    nullptr,
+FuncFeature builtin::Substr = {
+    StringAttr("substr"),
+    StringAttr("String"),
+    make_shared<LinkBuiltin>(LinkBuiltin("String")),
     {
-        make_shared<repr::Formal>(repr::Formal{"i", "Int"}),
-        make_shared<repr::Formal>(repr::Formal{"l", "Int"})
+        make_shared<Formal>(Formal(StringAttr("i"), StringAttr("Int"))),
+        make_shared<Formal>(Formal(StringAttr("l"), StringAttr("Int"))),
     }
 };
 
-repr::Class builtin::Bool = {
-    "Bool",
-    "Object",
+Class builtin::String = {
+    StringAttr("String"),
+    StringAttr("Object"),
+    {
+        make_shared<FuncFeature>(Length),
+        make_shared<FuncFeature>(Concat),
+        make_shared<FuncFeature>(Substr),
+    },
+    {},
+};
+
+Class builtin::Bool = {
+    StringAttr("Bool"),
+    StringAttr("Object"),
+    {},
+    {}
 };
 
 unordered_set<string> builtin::BuiltinClassSet = {

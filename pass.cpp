@@ -11,7 +11,7 @@
 
 using namespace cool::pass;
 
-void PassManager::Run() {
+void PassManager::Run(repr::Program& prog, PassContext& ctx) {
     auto& pm = GetPassManager();
     if (!pm.ready) {
         for (auto& edge : pm.dependency) {
@@ -21,7 +21,8 @@ void PassManager::Run() {
         pm.topsort();
     }
 
-    for (int i = pm.sorted.size()-1; i >= 0 ; --i) {
+    for (int i = 0; i < pm.passes.size() ; i++) {
+        (*pm.passes.at(pm.sorted[i]))(prog, ctx);
         cout<< pm.sorted[i] <<endl;
     }
 }
