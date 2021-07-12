@@ -236,7 +236,7 @@ diag::TextInfo Parser::GetTextInfo() {
     return toks.at(pos).textInfo;
 }
 
-// todo: the parsed ast must only contains valid nodes so that the semantic checking can be easier,
+// note: the parsed ast must only contains valid nodes so that the semantic checking can be easier,
 //  i.e., they only need to check valid nodes. for this reason, the checker need only checks expr,
 //  for any grammer that contains expr, the grammer parser itseld should filter out invalid exprs.
 Program Parser::ParseProgram() {
@@ -253,8 +253,6 @@ Program Parser::ParseProgram() {
         }
 
     }
-
-    if (prog.classes.empty()) diag.EmitError(GetTextInfo(), "'Main' class not declared");
 
     return prog;
 }
@@ -323,6 +321,7 @@ FuncFeature Parser::ParseFuncFeature() {
         }
         auto form = ParseFormal();
         if (checker.Visit(form)) feat.args.emplace_back(make_shared<Formal>(form));
+        else break;
     }
     PopScopeEnd();
     MoveTo(closeParenPos+1);
@@ -332,12 +331,21 @@ FuncFeature Parser::ParseFuncFeature() {
     PARSER_STAT_IF_FALSE_EMIT_DIAG_SKIP(Match(Token::TypeID), feat.type = StringAttr(ConsumeReturn()),
         "expected type identifier in class method definition");
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kOpenBrace), "expected '{' in class method definition", feat);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenBrace), "expected '{' in class method definition", feat);
 
+    int closeBracePos = ReturnValidBraceMatchFor(Pos());
+    if (closeBracePos < 0) {
+        MoveTo(ScopeEnd()-1);
+        diag.EmitError(GetTextInfo(), "expected '}' in class method definition");
+        return feat;
+    }
+    Consume();
+
+    PushScopeEnd(closeBracePos);
     auto expr = ParseExpr();
+    PopScopeEnd();
+    MoveTo(closeBracePos+1);
     PARSER_CHECK_ASSGIN_RETURN(feat.expr, expr, feat);
-
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kCloseBrace), "expected '}' in class method definition", feat);
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' in class method definition", feat);
     return feat;
@@ -372,8 +380,13 @@ Formal Parser::ParseFormal() {
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':' in formal parameter declaration", form);
 
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), form.type = StringAttr(ConsumeReturn()),
-                                          "expected type identifier in formal parameter declaration", form);
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
+        Match(Token::TypeID),
+        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
+            Peek().val != "SELF_TYPE",
+            form.type = StringAttr(ConsumeReturn()),
+            "'SELF_TYPE' cannot be used in formal parameter declaration", form),
+        "expected type identifier in formal parameter declaration", form);
     return form;
 }
 
@@ -617,23 +630,28 @@ Case Parser::ParseCase() {
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kOf), "expected 'of' in case expression", aCase);
 
     auto parseBranch = [&](){
-        Case::Branch branchDef;
+        Case::Branch branch;
 
-        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), branchDef.id = StringAttr(ConsumeReturn()),
-            "expected identifier", branchDef);
+        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), branch.id = StringAttr(ConsumeReturn()),
+            "expected identifier", branch);
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':'", branchDef);
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':'", branch);
 
-        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), branchDef.type = StringAttr(ConsumeReturn()),
-                                            "expected type identifier", branchDef);
+        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
+            Match(Token::TypeID),
+            PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
+                Peek().val != "SELF_TYPE",
+                branch.type = StringAttr(ConsumeReturn()),
+                "'SELF_TYPE' cannot be used in case expression", branch),
+            "expected type identifier", branch);
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kEval), "expected '=>'", branchDef);
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kEval), "expected '=>'", branch);
 
         auto expr = ParseExpr();
-        PARSER_CHECK_ASSGIN_RETURN(branchDef.expr, expr, branchDef);
+        PARSER_CHECK_ASSGIN_RETURN(branch.expr, expr, branch);
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';'", branchDef);
-        return branchDef;
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';'", branch);
+        return branch;
     };
 
     do {

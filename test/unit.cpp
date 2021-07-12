@@ -668,7 +668,7 @@ void TestSemanticCheckingPasses() {
         buildInheritanceTree(prog, passContext);
         auto typeAdvisor = *passContext.Get<type::TypeAdvisor>("type_advisor");
         for (auto& cls : prog.classes) {
-            typeAdvisor.Conforms(cls->name.val, "Object");
+            typeAdvisor.Conforms(cls->name.val, "Object", cls->name.val);
         }
 
         // Test TypeChecking Pass

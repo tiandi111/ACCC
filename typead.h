@@ -41,7 +41,7 @@ class TypeAdvisor {
 
     shared_ptr<repr::Class> GetTypeRepr(const string& type);
 
-    bool Conforms(const string& child, const string& parent);
+    bool Conforms(const string& left, const string& right, const string& C);
 
     string LeastCommonAncestor(const string& typea, const string& typeb);
 

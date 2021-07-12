@@ -16,12 +16,6 @@ namespace cool {
 
 namespace diag {
 
-struct TextInfo {
-    int line;
-    int pos;
-    int fileno;
-};
-
 class FileMapper {
   private:
     unordered_map<string, int> name2no;
@@ -33,6 +27,14 @@ class FileMapper {
     static int GetFileNo(const string& fname);
 
     static string GetFileName(int fileno);
+};
+
+struct TextInfo {
+    int line;
+    int pos;
+    int fileno;
+
+    string String();
 };
 
 class Diagnosis {

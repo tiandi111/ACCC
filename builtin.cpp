@@ -140,3 +140,7 @@ unordered_set<string> builtin::BuiltinClassSet = {
     "String",
     "Bool"
 };
+
+unordered_set<string> builtin::InheritableBuiltInClasses = {
+    "IO"
+};

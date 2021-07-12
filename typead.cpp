@@ -44,10 +44,13 @@ shared_ptr<repr::Class> TypeAdvisor::GetTypeRepr(const string& type) {
     return get(type)->cls;
 }
 
-bool TypeAdvisor::Conforms(const string& child, const string& parent) {
-    auto node = get(child);
+// define the '<=' rule
+bool TypeAdvisor::Conforms(const string& left, const string& right, const string& C) {
+    if (right == "SELF_TYPE") return left == "SELF_TYPE";
+    if (left == "SELF_TYPE") return Conforms(C, right, C);
+    auto node = get(left);
     while (node) {
-        if (node->type == parent) return true;
+        if (node->type == right) return true;
         node = node->parent;
     }
     return false;

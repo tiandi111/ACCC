@@ -27,3 +27,7 @@ string FileMapper::GetFileName(int fileno) {
     if (fm.no2name.find(fileno) == fm.no2name.end()) throw runtime_error("invalid file number");
     return fm.no2name.at(fileno);
 }
+
+string TextInfo::String() {
+    return FileMapper::GetFileName(fileno) + ":" + to_string(line) + ":" + to_string(pos);
+}

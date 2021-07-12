@@ -38,6 +38,7 @@ extern repr::Class String;
 extern repr::Class Bool;
 
 extern unordered_set<string> BuiltinClassSet;
+extern unordered_set<string> InheritableBuiltInClasses;
 
 } // builtin
 

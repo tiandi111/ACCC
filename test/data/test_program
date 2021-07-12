@@ -1,22 +1,18 @@
-Class Base {
+Class Base inherits IO {
     a : Int;
     b : String;
     c : Bool;
     d : IO;
 
-    do(arg1 : Int, arg2 : Int) : Int {
+    do(arg1 : Int, arg2 : Int) : SELF_TYPE {
         {
-            temp <- arg3 + arg2;
-            d.out_int(temp / 2);
+            out_int(arg1 / 2);
         }
     };
 };
 
-Class Derived1 inherits Base {
-    do(arg1 : Int, arg2 : Int) : Int {
-        {
-            temp <- arg1 - arg2;
-            d.out_int(temp / 2);
-        }
+class Derived1 inherits Base {
+    play() : SELF_TYPE {
+        do(0, 2);
     };
 };

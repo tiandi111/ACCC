@@ -35,7 +35,7 @@ namespace parser {
     } \
 
 #define PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(pred, stat, msg, rItem) \
-    if (pred) stat; \
+    if (pred) {stat;} \
     else { \
         diag.EmitError(GetTextInfo(), msg); \
         return rItem; \
