@@ -323,7 +323,6 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
 
 void ana::BuildInheritanceTree::Required() { pass::PassManager::Required<BuildInheritanceTree, InitSymbolTable>(); }
 
-// todo: handle self type; inherited attributes (need to traverse the inheritance tree)
 repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassContext& ctx) {
     using namespace visitor;
     using namespace builtin;
@@ -523,9 +522,11 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
             for (int i = 0; i < expr.formals.size(); i++) {
                 ENTER_SCOPE_GUARD(stable, {
                     auto& form = expr.formals.at(i);
-                    auto exprType = ExprVisitor<TypeName>::Visit(*form->expr);
-                    if (form->expr && !typeAdvisor.Conforms(exprType, form->type.val, stable.GetClass()->name.val))
-                        ctx.diag.EmitError(form->expr->GetTextInfo(), invalidAssignmentMsg(exprType, form->type.val));
+                    if (form->expr) {
+                        auto exprType = ExprVisitor<TypeName>::Visit(*form->expr);
+                        if (form->expr && !typeAdvisor.Conforms(exprType, form->type.val, stable.GetClass()->name.val))
+                            ctx.diag.EmitError(form->expr->GetTextInfo(), invalidAssignmentMsg(exprType, form->type.val));
+                    }
                     if (i == expr.formals.size()-1) rType = ExprVisitor<TypeName>::Visit(*expr.expr);
                 })
             }

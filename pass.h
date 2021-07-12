@@ -56,7 +56,7 @@ class ProgramPass : public Pass {
     virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; }
 };
 
-// todo: think, should we pass information by pass object or pass context?
+// todo: think, should we pass information by passing object or passing context?
 class PassManager {
   public:
     PassManager(PassManager &pm) = delete;

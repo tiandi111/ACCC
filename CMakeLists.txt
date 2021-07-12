@@ -19,7 +19,7 @@ add_executable(cool
         diag.h diag.cpp
         main.cpp)
 
-add_executable(unittest
+add_executable(UTest
         parser.h parser.cpp
         repr.h repr.cpp
         token.h token.cpp
@@ -34,3 +34,19 @@ add_executable(unittest
         typead.h typead.cpp
         diag.h diag.cpp
         test/unit.h test/unit.cpp)
+
+add_executable(ITest
+        parser.h parser.cpp
+        repr.h repr.cpp
+        token.h token.cpp
+        pass.h pass.cpp
+        tokenizer.h tokenizer.cpp
+        analysis.h analysis.cpp
+        stable.h
+        attrs.h
+        visitor.h
+        vtable.h
+        builtin.h builtin.cpp
+        typead.h typead.cpp
+        diag.h diag.cpp
+        test/integration.h test/integration.cpp)

@@ -77,6 +77,7 @@ bool ParsingResultChecker::VisitBinary(repr::Binary& expr) {
 }
 
 bool ParsingResultChecker::Visit_(repr::Case& expr) {
+    if (expr.branches.empty()) return false;
     for (auto& branch : expr.branches) if (!branch || !Visit(*branch)) return false;
     return Visit(expr.expr);
 }

@@ -1,0 +1,66 @@
+{
+  "TestInheritBuiltinClass": {
+    "cases": [
+      {
+        "title": "Object",
+        "program": "class A inherits Object {};",
+        "pass": true
+      },
+      {
+        "title": "IO",
+        "program": "class A inherits IO {};",
+        "pass": true
+      },
+      {
+        "title": "Int",
+        "program": "class A inherits Int {};",
+        "pass": false
+      },
+      {
+        "title": "String",
+        "program": "class A inherits String {};",
+        "pass": false
+      },
+      {
+        "title": "Bool",
+        "program": "class A inherits Bool {};",
+        "pass": false
+      }
+    ]
+  },
+
+  "TestSelfTypeUsage": {
+    "cases": [
+      {
+        "title": "Function Return Type",
+        "program": "class A { do() : SELF_TYPE {}; };",
+        "pass": true
+      },
+      {
+        "title": "Attribute Type",
+        "program": "class A { a : SELF_TYPE; };",
+        "pass": true
+      },
+      {
+        "title": "New Expression",
+        "program": "class A { do() : SELF_TYPE { new SELF_TYPE }; };",
+        "pass": true
+      },
+      {
+        "title": "Let Expression",
+        "program": "class A { do() : SELF_TYPE { let a : SELF_TYPE in a }; };",
+        "pass": true
+      },
+      {
+        "title": "Formal Parameter",
+        "program": "class A { do(x : SELF_TYPE) : SELF_TYPE { x }; };",
+        "pass": false
+      },
+      {
+        "title": "Case Expression",
+        "program": "class A { do(x : Int) : SELF_TYPE { case x of a : SELF_TYPE => a; esac }; };",
+        "pass": false
+      }
+    ]
+  }
+}

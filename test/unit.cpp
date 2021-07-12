@@ -4,15 +4,13 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+
 #include "unit.h"
 #include "../parser.h"
 #include "../tokenizer.h"
 #include "../pass.h"
 #include "../analysis.h"
-#include "../stable.h"
 #include "../builtin.h"
-#include "../typead.h"
-#include "../diag.h"
 
 using namespace std;
 
@@ -646,39 +644,7 @@ void TestVirtualTable() {
 }
 
 void TestSemanticCheckingPasses() {
-    vector<Token> toks;
-    ConstructProgTokens(toks, false, testFuncFeats, testFieldFeats);
-    Parser parser(testDiag, toks);
-    auto prog = parser.ParseProgram();
-    int clsNum = prog.classes.size();
-    PassContext passContext(testDiag);
-    try {
-        // Test InstallBuiltin Pass
-        InstallBuiltin installBuiltin;
-        installBuiltin(prog, passContext);
-        assert(prog.classes.size() == clsNum + BuiltinClassSet.size());
 
-        // Test InitSymbolTable Pass
-        InitSymbolTable initSymbolTable;
-        initSymbolTable(prog, passContext);
-        assert(passContext.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table"));
-
-        // Test BuildInheritanceTree Pass
-        BuildInheritanceTree buildInheritanceTree;
-        buildInheritanceTree(prog, passContext);
-        auto typeAdvisor = *passContext.Get<type::TypeAdvisor>("type_advisor");
-        for (auto& cls : prog.classes) {
-            typeAdvisor.Conforms(cls->name.val, "Object", cls->name.val);
-        }
-
-        // Test TypeChecking Pass
-        TypeChecking typeChecking;
-        typeChecking(prog, passContext);
-
-    } catch (exception& e) {
-        cerr<< e.what() <<endl;
-        assert(false);
-    }
 }
 
 void TestFrontEnd() {

@@ -101,6 +101,8 @@ class Diagnosis {
 
     int Size() { return rows.size(); }
 
+    bool Empty() {return rows.empty(); }
+
     void Output(ostream& ostm) {
         for (auto& row : rows)
             ostm<< row.file << ":" << row.line << ":" << row.pos << ": " <<
