@@ -283,11 +283,40 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
         }
     };
 
+    class InheritedAttrMutator : public ProgramVisitor, ClassVisitor {
+      public:
+        ScopedTableSpecializer<SymbolTable>& stable;
+        type::TypeAdvisor& typeAdvisor;
+
+        InheritedAttrMutator(ScopedTableSpecializer<SymbolTable>& _stable, type::TypeAdvisor& _typeAdvisor)
+        : stable(_stable), typeAdvisor(_typeAdvisor) {
+            stable.InitTraverse();
+        }
+
+        void Visit(repr::Program& prog) {
+            ENTER_SCOPE_GUARD(stable, for (auto& cls : prog.classes) Visit(*cls);)
+        }
+
+        void Visit(repr::Class &cls) {
+            auto ancestor = typeAdvisor.GetTypeRepr(cls.parent.val);
+            while (ancestor) {
+                for (auto& field : ancestor->fields) {
+                    if (stable.GetIdAttr(field->name.val)) continue;
+                    if (field->type.val == "SELF_TYPE") stable.Insert(attr::IdAttr{field->name.val, cls.name.val});
+                    else stable.Insert(attr::IdAttr{field->name.val, field->type.val});
+                }
+                ancestor = typeAdvisor.GetTypeRepr(ancestor->parent.val);
+            }
+        }
+    };
+
     auto stable = ctx.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table");
     Checker chek(ctx);
     chek.Visit(prog);
     Visitor vis(ctx, *stable);
     vis.Visit(prog);
+    InheritedAttrMutator mutator(*stable, vis.typeAdvisor);
+    mutator.Visit(prog);
     ctx.Set<type::TypeAdvisor>("type_advisor", vis.typeAdvisor);
     return prog;
 }
@@ -373,10 +402,12 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         }
 
         TypeName Visit_(repr::Block& expr) {
+            TypeName rType;
             ENTER_SCOPE_GUARD(stable, {
                 for (int i = 0; i < expr.exprs.size() - 1; i++) ExprVisitor<TypeName>::Visit(*expr.exprs.at(i));
-                return ExprVisitor<TypeName>::Visit(*expr.exprs.back());
+                rType = ExprVisitor<TypeName>::Visit(*expr.exprs.back());
             })
+            return rType;;
         }
 
         TypeName Visit_(repr::Case& expr) {
@@ -395,12 +426,16 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         }
 
         TypeName Visit_(repr::Call& expr) {
-            ENTER_SCOPE_GUARD(stable, return CheckCall(stable.GetClass()->name.val, expr);)
+            TypeName rType;
+            ENTER_SCOPE_GUARD(stable, rType = CheckCall(stable.GetClass()->name.val, expr);)
+            return rType;
         }
 
         TypeName Visit_(repr::MethodCall& expr) {
+            TypeName rType;
             ENTER_SCOPE_GUARD(stable,
-                return CheckCall(ExprVisitor<TypeName>::Visit(*expr.left), *static_pointer_cast<repr::Call>(expr.right));)
+                rType = CheckCall(ExprVisitor<TypeName>::Visit(*expr.left), *static_pointer_cast<repr::Call>(expr.right));)
+            return rType;
         }
 
         TypeName CheckCall(TypeName type, repr::Call& expr) {
@@ -484,17 +519,17 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         }
 
         TypeName Visit_(repr::Let& expr) {
+            TypeName rType;
             for (int i = 0; i < expr.formals.size(); i++) {
                 ENTER_SCOPE_GUARD(stable, {
                     auto& form = expr.formals.at(i);
                     auto exprType = ExprVisitor<TypeName>::Visit(*form->expr);
                     if (form->expr && !typeAdvisor.Conforms(exprType, form->type.val, stable.GetClass()->name.val))
                         ctx.diag.EmitError(form->expr->GetTextInfo(), invalidAssignmentMsg(exprType, form->type.val));
-                    if (i == expr.formals.size()-1) {
-                        return ExprVisitor<TypeName>::Visit(*expr.expr);
-                    }
+                    if (i == expr.formals.size()-1) rType = ExprVisitor<TypeName>::Visit(*expr.expr);
                 })
             }
+            return rType;
         }
 
         TypeName Visit_(repr::Multiply& expr) {
@@ -538,8 +573,8 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
                 if (ExprVisitor<TypeName>::Visit(*expr.whileExpr) != "Bool")
                     ctx.diag.EmitError(expr.GetTextInfo(), "predicate in while expression must be 'Bool'");
                 ExprVisitor<TypeName>::Visit(*expr.loopExpr);
-                return "Object";
             })
+            return "Object";
         }
     };
 

@@ -12,7 +12,10 @@ Class Base inherits IO {
 };
 
 class Derived1 inherits Base {
+    a : String;
+    b : Int;
+
     play() : SELF_TYPE {
-        do(0, 2);
+        b <- a;
     };
 };

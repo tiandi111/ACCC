@@ -343,9 +343,11 @@ FuncFeature Parser::ParseFuncFeature() {
 
     PushScopeEnd(closeBracePos);
     auto expr = ParseExpr();
+    if (!Empty()) diag.EmitError(GetTextInfo(), "only one expression allowed in function declaration");
     PopScopeEnd();
+
+    if (checker.Visit(expr)) feat.expr = expr;
     MoveTo(closeBracePos+1);
-    PARSER_CHECK_ASSGIN_RETURN(feat.expr, expr, feat);
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' in class method definition", feat);
     return feat;
