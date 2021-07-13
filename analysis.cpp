@@ -32,6 +32,7 @@ repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassCon
 repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassContext& ctx) {
     using namespace visitor;
 
+    // todo: attribute redefinition checker
     class ClassRedefineChecker : public ProgramVisitor {
       public:
         pass::PassContext& ctx;
@@ -69,6 +70,7 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
             for (auto& cls : prog.classes) Visit(*cls);
         }
 
+        // todo: fix func redefinition bug
         void Visit(repr::Class &cls) {
             unordered_map<string, shared_ptr<repr::FuncFeature>> funcs;
             for (auto it = cls.funcs.begin(); it != cls.funcs.end(); ) {
@@ -172,13 +174,13 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
 
         void Visit_(repr::Let& expr) {
             for (int i = 0; i < expr.formals.size(); i++) {
-                NEW_SCOPE_GUARD(stable, {
-                    auto& form = expr.formals.at(i);
-                    stable.Current().Insert(attr::IdAttr{form->name.val, form->type.val});
-                    if (form->expr) ExprVisitor::Visit(*form->expr);
-                    if (i == expr.formals.size()-1) ExprVisitor::Visit(*expr.expr);
-                }, stable.GetClass())
+                stable.NewScope(stable.GetClass());
+                auto& form = expr.formals.at(i);
+                stable.Current().Insert(attr::IdAttr{form->name.val, form->type.val});
+                if (form->expr) ExprVisitor::Visit(*form->expr);
             }
+            ExprVisitor::Visit(*expr.expr);
+            for (int i = 0; i < expr.formals.size(); i++) stable.FinishScope();
         }
 
         void Visit_(repr::MethodCall& expr) {
@@ -520,16 +522,16 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         TypeName Visit_(repr::Let& expr) {
             TypeName rType;
             for (int i = 0; i < expr.formals.size(); i++) {
-                ENTER_SCOPE_GUARD(stable, {
-                    auto& form = expr.formals.at(i);
-                    if (form->expr) {
-                        auto exprType = ExprVisitor<TypeName>::Visit(*form->expr);
-                        if (form->expr && !typeAdvisor.Conforms(exprType, form->type.val, stable.GetClass()->name.val))
-                            ctx.diag.EmitError(form->expr->GetTextInfo(), invalidAssignmentMsg(exprType, form->type.val));
-                    }
-                    if (i == expr.formals.size()-1) rType = ExprVisitor<TypeName>::Visit(*expr.expr);
-                })
+                stable.EnterScope();
+                auto& form = expr.formals.at(i);
+                if (form->expr) {
+                    auto exprType = ExprVisitor<TypeName>::Visit(*form->expr);
+                    if (!typeAdvisor.Conforms(exprType, form->type.val, stable.GetClass()->name.val))
+                        ctx.diag.EmitError(form->expr->GetTextInfo(), invalidAssignmentMsg(exprType, form->type.val));
+                }
             }
+            rType = ExprVisitor<TypeName>::Visit(*expr.expr);
+            for (int i = 0; i < expr.formals.size(); i++) stable.LeaveScope();
             return rType;
         }
 

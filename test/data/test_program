@@ -1,21 +1,4 @@
 Class Base inherits IO {
-    a : Int;
-    b : String;
-    c : Bool;
-    d : IO;
-
-    do(arg1 : Int, arg2 : Int) : SELF_TYPE {
-        {
-            out_int(arg1 / 2);
-        }
-    };
-};
-
-class Derived1 inherits Base {
-    a : String;
-    b : Int;
-
-    play() : SELF_TYPE {
-        b <- a;
-    };
+    do() : Int {};
+    do() : Int {};
 };

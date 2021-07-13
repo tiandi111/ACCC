@@ -1,0 +1,502 @@
+{
+  "TestArithmetic": {
+    "title": "TestArithmetic",
+    "cases": [
+      {
+        "title": "+ Valid Operands",
+        "program": "class A { add(x:Int, y:Int) : Int { x + y }; };",
+        "pass": true
+      },
+      {
+        "title": "+ Invalid Operands",
+        "program": "class A { add(x:String, y:Int) : Int { x + y }; };",
+        "pass": false
+      },
+      {
+        "title": "- Valid Operands",
+        "program": "class A { add(x:Int, y:Int) : Int { x - y }; };",
+        "pass": true
+      },
+      {
+        "title": "- Invalid Operands",
+        "program": "class A { add(x:Int, y:String) : Int { x - y }; };",
+        "pass": false
+      },
+      {
+        "title": "* Valid Operands",
+        "program": "class A { add(x:Int, y:Int) : Int { x * y }; };",
+        "pass": true
+      },
+      {
+        "title": "* Invalid Operands",
+        "program": "class A { add(x:Int, y:Bool) : Int { x * y }; };",
+        "pass": false
+      },
+      {
+        "title": "/ Valid Operands",
+        "program": "class A { add(x:Int, y:Int) : Int { x / y }; };",
+        "pass": true
+      },
+      {
+        "title": "/ InValid Operands",
+        "program": "class A { add(x:Int, y:IO) : Int { x / y }; };",
+        "pass": false
+      },
+      {
+        "title": "< Valid Operands",
+        "program": "class A { add(x:Int, y:Int) : Bool { x < y }; };",
+        "pass": true
+      },
+      {
+        "title": "< InValid Operands",
+        "program": "class A { add(x:Int, y:IO) : Bool { x < y }; };",
+        "pass": false
+      },
+      {
+        "title": "< InValid Return Type",
+        "program": "class A { add(x:Int, y:Int) : Int { x < y }; };",
+        "pass": false
+      },
+      {
+        "title": "<= Valid Operands",
+        "program": "class A { add(x:Int, y:Int) : Bool { x <= y }; };",
+        "pass": true
+      },
+      {
+        "title": "<= InValid Operands",
+        "program": "class A { add(x:Int, y:Bool) : Bool { x <= y }; };",
+        "pass": false
+      },
+      {
+        "title": "<= InValid Return Type",
+        "program": "class A { add(x:Int, y:Int) : Int { x <= y }; };",
+        "pass": false
+      },
+      {
+        "title": "~ Valid Operands",
+        "program": "class A { add(x:Int) : Int { ~x }; };",
+        "pass": true
+      },
+      {
+        "title": "~ InValid Operands",
+        "program": "class A { add(x:Bool) : Int { ~x }; };",
+        "pass": false
+      },
+      {
+        "title": "not Valid Operands",
+        "program": "class A { add(x:Bool) : Bool { not x }; };",
+        "pass": true
+      },
+      {
+        "title": "not InValid Operands",
+        "program": "class A { add(x:Int) : Bool { not x }; };",
+        "pass": false
+      },
+      {
+        "title": "not InValid Return Type",
+        "program": "class A { add(x:Bool) : Int { not x }; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestAssignment": {
+    "title": "TestAssignment",
+    "cases": [
+      {
+        "title": "Valid Assignment (Constant)",
+        "program": "class A { a : Int; do() : Int { a <- 1 }; };",
+        "pass": true
+      },
+      {
+        "title": "Valid Assignment (Variable)",
+        "program": "class A { a : Int; do(x : Int) : Int { a <- x }; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Assignment",
+        "program": "class A { a : Int; do() : Int { a <- \"1\" }; };",
+        "pass": false
+      },
+      {
+        "title": "InValid Return Type",
+        "program": "class A { a : Int; do() : Bool { a <- 1 }; };",
+        "pass": false
+      },
+      {
+        "title": "Type Conversion (Up Cast)",
+        "program": "class A {}; class B inherits A { a : A; do(b : B) : A { a <- b }; };",
+        "pass": true
+      },
+      {
+        "title": "Type Conversion (Down Cast)",
+        "program": "class A {}; class B inherits A { b : B; do(a : A) : A { b <- a }; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestBlock": {
+    "title": "TestBlock",
+    "cases": [
+      {
+        "title": "Valid Block Expression",
+        "program": "class A { do() : Int { { \"\"; true; new A; 1; } }; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Return Type",
+        "program": "class A { do() : A { { \"\"; true; new A; 1; } }; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestCase": {
+    "title": "TestCase",
+    "cases": [
+      {
+        "title": "Valid Case Expression",
+        "program": "class A { do(x:Object) : Object { case x of a:Int=>a; b:Bool=>b; c:String=>c; esac }; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Number of Branches",
+        "program": "class A { do(x:Object) : Object { case x of esac }; };",
+        "pass": false
+      },
+      {
+        "title": "Shadow Existing Variables (Attributes)",
+        "program": "class B {a:Int; do(x:Object) : String { case x of a:String=>a; esac }; };",
+        "pass": true
+      },
+      {
+        "title": "Invisible Outside The Scope",
+        "program": "class B {do(x:Object) : String { {case x of a:String=>a; esac; a;} }; };",
+        "pass": false
+      },
+      {
+        "title": "Valid Branch Join Type (Custom Types)",
+        "program": "class A {}; class B inherits A { do(x:Object) : A { case x of a:A=>new A; b:B=>new B; esac }; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Branch Join Type (Custom Types)",
+        "program": "class A {}; class B inherits A { do(x:Object) : B { case x of a:A=>new A; b:B=>new B; esac }; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestClassRedefinition": {
+    "title": "TestClassRedefinition",
+    "cases": [
+      {
+        "title": "Built-in Class Redefinition (Object)",
+        "program": "class Object {};",
+        "pass": false
+      },
+      {
+        "title": "Built-in Class Redefinition (String)",
+        "program": "class String {};",
+        "pass": false
+      },
+      {
+        "title": "Built-in Class Redefinition (Int)",
+        "program": "class Int {};",
+        "pass": false
+      },
+      {
+        "title": "Built-in Class Redefinition (IO)",
+        "program": "class IO {};",
+        "pass": false
+      },
+      {
+        "title": "Built-in Class Redefinition (Bool)",
+        "program": "class Bool {};",
+        "pass": false
+      },
+      {
+        "title": "Custom Class Redefinition",
+        "program": "class A {}; class A {};",
+        "pass": false
+      },
+      {
+        "title": "Class Method Redefinition",
+        "program": "class A { do() : Int {}; do() : Int {}; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestDispatch": {
+    "title": "TestDispatch",
+    "cases": [
+      {
+        "title": "Valid Dispatch Expression (Call)",
+        "program": "class A { foo():Int{1}; bar():Int{foo()}; };",
+        "pass": true
+      },
+      {
+        "title": "Valid Dispatch Expression (Method Call)",
+        "program": "class A { foo():Int{1}; }; class B {a:A; foo():Int{a.foo()}; };",
+        "pass": true
+      },
+      {
+        "title": "Inherited Call",
+        "program": "class A { foo():Int{1}; }; class B inherits A { bar():Int{foo()}; };",
+        "pass": true
+      },
+      {
+        "title": "Inherited Call With SELF_TYPE (Built-in copy())",
+        "program": "class A { foo():SELF_TYPE{ copy() }; };",
+        "pass": true
+      },
+      {
+        "title": "Inherited Call With SELF_TYPE (Custom Class)",
+        "program": "class A { foo():SELF_TYPE{new SELF_TYPE}; }; class B inherits A { bar():SELF_TYPE{foo()}; foobar():B{foo()}; };",
+        "pass": true
+      },
+      {
+        "title": "Invalid Inherited Call With SELF_TYPE (Custom Class, Down Cast)",
+        "program": "class A { foo():A{new A}; }; class B inherits A { bar():SELF_TYPE{foo()}; };",
+        "pass": false
+      },
+      {
+        "title": "Invalid Call With SELF_TYPE (Custom Class, Down Cast)",
+        "program": "class A { foo():A{new A}; bar():SELF_TYPE{foo()}; };",
+        "pass": false
+      },
+      {
+        "title": "Overload Inherited Method",
+        "program": "class A { foo():Int{1}; }; class B inherits A { foo():String{\"\"}; bar():String{foo()}; };",
+        "pass": true
+      }
+    ]
+  },
+  "TestIf": {
+    "title": "TestIf",
+    "cases": [
+      {
+        "title": "Valid If Expression",
+        "program": "class A { do() : Int { if true then 1 else 1 fi }; };",
+        "pass": true
+      },
+      {
+        "title": "Invalid Predicate Type",
+        "program": "class A { do() : Int { if 1 then 1 else 1 fi }; };",
+        "pass": false
+      },
+      {
+        "title": "Invalid Branch Type (then)",
+        "program": "class A { do() : String { if true then 1 else \"\" fi }; };",
+        "pass": false
+      },
+      {
+        "title": "Invalid Branch Type (else)",
+        "program": "class A { do() : Int { if false then 1 else \"\" fi }; };",
+        "pass": false
+      },
+      {
+        "title": "Valid Branch Join Type (Custom Types)",
+        "program": "class A {}; class B inherits A {}; class C inherits A { do(b:B, c:C) : A { if true then b else c fi }; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Branch Join Type (Custom Types)",
+        "program": "class A {}; class B inherits A {}; class C { do(b:B, c:C) : A { if true then b else c fi }; };",
+        "pass": false
+      },
+      {
+        "title": "Valid Branch Join Type (Object)",
+        "program": "class A {}; class C { do(a:A, c:C) : Object { if true then a else c fi }; };",
+        "pass": true
+      }
+    ]
+  },
+  "TestInheritance": {
+    "title": "TestInheritance",
+    "cases": [
+      {
+        "title": "Use Inherited Attributes",
+        "program": "class A { a : Int; }; class B inherits A { do() : Int { a }; };",
+        "pass": true
+      },
+      {
+        "title": "Overload Inherited Attributes",
+        "program": "class A { a : Int; }; class B inherits A { a : String; do() : String { a }; };",
+        "pass": true
+      },
+      {
+        "title": "Call Inherited Methods",
+        "program": "class A { do() : Int { 1 }; }; class B inherits A { doA() : Int { do() }; };",
+        "pass": true
+      },
+      {
+        "title": "Call Inherited Built-in Methods (type_name())",
+        "program": "class A { do() : String { type_name() }; };",
+        "pass": true
+      },
+      {
+        "title": "Overload Inherited Methods",
+        "program": "class A { do() : Int { 1 }; }; class B inherits A { do() : String { \"\" }; doB() : String { do() }; };",
+        "pass": true
+      }
+    ]
+  },
+  "TestInheritBuiltinClass": {
+    "title": "TestInheritBuiltinClass",
+    "cases": [
+      {
+        "title": "Object",
+        "program": "class A inherits Object {};",
+        "pass": true
+      },
+      {
+        "title": "IO",
+        "program": "class A inherits IO {};",
+        "pass": true
+      },
+      {
+        "title": "Int",
+        "program": "class A inherits Int {};",
+        "pass": false
+      },
+      {
+        "title": "String",
+        "program": "class A inherits String {};",
+        "pass": false
+      },
+      {
+        "title": "Bool",
+        "program": "class A inherits Bool {};",
+        "pass": false
+      }
+    ]
+  },
+  "TestIsVoid": {
+    "title": "TestIsVoid",
+    "cases": [
+      {
+        "title": "Valid IsVoid Expression",
+        "program": "class A { do() : Bool {isvoid new Int}; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Return Type",
+        "program": "class A { do() : Int {isvoid new Int}; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestLet": {
+    "title": "TestLet",
+    "cases": [
+      {
+        "title": "Valid Let Expression",
+        "program": "class A { do() : Int { let a:Int, b:Int<-1 in a+b }; };",
+        "pass": true
+      },
+      {
+        "title": "Invalid Number of Identifiers (Zero Id)",
+        "program": "class A { do() : Int { let in 1 }; };",
+        "pass": false
+      },
+      {
+        "title": "Invalid Return Type",
+        "program": "class A { do() : Bool { let a:Int, b:Int<-1 in a+b }; };",
+        "pass": false
+      },
+      {
+        "title": "Shadow Existing Variables (Attribute)",
+        "program": "class A {b:String;}; class B inherits A { a:String; do() : Int { let a:Int, b:Int<-1 in a+b }; };",
+        "pass": true
+      },
+      {
+        "title": "Shadow Existing Variables (Earlier Let Variable)",
+        "program": "class A { do() : Int { let a:String, a:Int<-1 in a }; };",
+        "pass": true
+      },
+      {
+        "title": "Visible To Later Let Variables",
+        "program": "class A { do() : Int { let a:Int<-1, b:Int<-a in b }; };",
+        "pass": true
+      },
+      {
+        "title": "Invisible Outside The Scope",
+        "program": "class B { do() : Int { {let a:Int, b:Int<-1 in a+b; a;} }; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestNew": {
+    "title": "TestNew",
+    "cases": [
+      {
+        "title": "Valid New Expression",
+        "program": "class A { do() : Int {new Int}; };",
+        "pass": true
+      },
+      {
+        "title": "Valid New Expression (SELF_TYPE)",
+        "program": "class A { do() : A {new SELF_TYPE}; };",
+        "pass": true
+      },
+      {
+        "title": "InValid Return Type",
+        "program": "class A { do() : Int {new Bool}; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestSelfTypeUsage": {
+    "title": "TestSelfTypeUsage",
+    "cases": [
+      {
+        "title": "Function Return Type",
+        "program": "class A { do() : SELF_TYPE {}; };",
+        "pass": true
+      },
+      {
+        "title": "Attribute Type",
+        "program": "class A { a : SELF_TYPE; };",
+        "pass": true
+      },
+      {
+        "title": "New Expression",
+        "program": "class A { do() : SELF_TYPE { new SELF_TYPE }; };",
+        "pass": true
+      },
+      {
+        "title": "Let Expression",
+        "program": "class A { do() : SELF_TYPE { let a : SELF_TYPE in a }; };",
+        "pass": true
+      },
+      {
+        "title": "Formal Parameter",
+        "program": "class A { do(x : SELF_TYPE) : SELF_TYPE { x }; };",
+        "pass": false
+      },
+      {
+        "title": "Case Expression",
+        "program": "class A { do(x : Int) : SELF_TYPE { case x of a : SELF_TYPE => a; esac }; };",
+        "pass": false
+      }
+    ]
+  },
+  "TestWhile": {
+    "title": "TestWhile",
+    "cases": [
+      {
+        "title": "Valid While Expression",
+        "program": "class A { do(x : Int) : Object { while true loop x <- x+1 pool }; };",
+        "pass": true
+      },
+      {
+        "title": "Invalid Predicate Type",
+        "program": "class A { do(x : Int) : Object { while 1 loop x <- x+1 pool }; };",
+        "pass": false
+      },
+      {
+        "title": "Invalid Return Type",
+        "program": "class A { do(x : Int) : Int { while true loop x <- x+1 pool }; };",
+        "pass": false
+      }
+    ]
+  }
+}

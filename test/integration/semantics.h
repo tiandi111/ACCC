@@ -2,8 +2,8 @@
 // Created by 田地 on 2021/7/12.
 //
 
-#ifndef COOL_INTEGRATION_H
-#define COOL_INTEGRATION_H
+#ifndef COOL_SEMANTICS_H
+#define COOL_SEMANTICS_H
 
 #include <string>
 #include <vector>
@@ -11,8 +11,8 @@
 #include <memory>
 #include <fstream>
 
-#include "../include/json.hpp"
-#include "../diag.h"
+#include "../../include/json.hpp"
+#include "../../diag.h"
 
 using namespace std;
 
@@ -32,9 +32,10 @@ struct Case {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Case, title, program, pass);
 
 struct Test {
+    string title;
     vector<Case> cases;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Test, cases);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Test, title, cases);
 
 class IntegrationTestLoader {
   private:
@@ -51,7 +52,7 @@ class IntegrationTestLoader {
     }
 
     static IntegrationTestLoader& GetIntegrationTestLoader() {
-        static IntegrationTestLoader integrationTestLoader("../test/data/integration.json");
+        static IntegrationTestLoader integrationTestLoader("../test/data/semantics.json");
         return integrationTestLoader;
     }
 
@@ -60,15 +61,28 @@ class IntegrationTestLoader {
     }
 };
 
+int TotalNumOfTestCases = 0;
+int TotalNumOfPassedCases = 0;
 
+void RunFrontEnd(const Test& test);
 
-void RunFrontEnd(const string& title, Diagnosis& diagnosis, istream& in);
-
+void TestArithmetic();
+void TestAssignment();
+void TestBlock();
+void TestCase();
+void TestClassRedefinition();
+void TestDispatch();
+void TestIf();
+void TestInheritance();
 void TestInheritBuiltinClass();
+void TestIsVoid();
+void TestLet();
+void TestNew();
 void TestSelfTypeUsage();
+void TestWhile();
 
 } // namespace integration
 
 } // namespace cool
 
-#endif //COOL_INTEGRATION_H
+#endif //COOL_SEMANTICS_H

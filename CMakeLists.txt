@@ -49,4 +49,4 @@ add_executable(ITest
         builtin.h builtin.cpp
         typead.h typead.cpp
         diag.h diag.cpp
-        test/integration.h test/integration.cpp)
+        test/integration/semantics.h test/integration/semantics.cpp)
