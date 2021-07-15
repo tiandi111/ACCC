@@ -251,23 +251,107 @@ struct FieldFeature : Repr {
 };
 
 struct Class : Repr {
-    StringAttr name;
-    StringAttr parent;
+  private:
     vector<shared_ptr<FuncFeature>> funcs;
     vector<shared_ptr<FieldFeature>> fields;
+    unordered_map<string, shared_ptr<FuncFeature>> funcMap;
+    unordered_map<string, shared_ptr<FieldFeature>> fieldMap;
+
+  public:
+    StringAttr name;
+    StringAttr parent;
 
     Class() = default;
+
     Class(StringAttr _name, StringAttr _parent, vector<shared_ptr<FuncFeature>> _funcs,
-        vector<shared_ptr<FieldFeature>> _fields) : name(_name), parent(_parent), funcs(_funcs), fields(_fields) {}
+        vector<shared_ptr<FieldFeature>> _fields) : name(_name), parent(_parent), funcs(_funcs), fields(_fields) {
+        for (auto& func : funcs) funcMap.insert({func->name.val, func});
+        for (auto& field : fields) fieldMap.insert({field->name.val, field});
+    }
+
     inline diag::TextInfo GetTextInfo() final { return name.textInfo; }
+
+    inline shared_ptr<FuncFeature> GetFuncFeaturePtr(const string& name) {
+        return funcMap.find(name) == funcMap.end() ? nullptr : funcMap.at(name);
+    }
+
+    inline vector<shared_ptr<FuncFeature>>& GetFuncFeatures() { return funcs; }
+
+    inline shared_ptr<FieldFeature> GetFieldFeaturePtr(const string& name) {
+        return fieldMap.find(name) == fieldMap.end() ? nullptr : fieldMap.at(name);
+    }
+
+    inline vector<shared_ptr<FieldFeature>>& GetFieldFeatures() { return fields; }
+
+    bool AddFuncFeature(FuncFeature& feat) {
+        if (funcMap.find(feat.name.val) != funcMap.end()) return false;
+        auto featPtr = make_shared<FuncFeature>(feat);
+        funcs.emplace_back(featPtr);
+        funcMap.insert({feat.name.val, featPtr});
+        return true;
+    }
+
+    bool AddFieldFeature(FieldFeature& feat) {
+        if (fieldMap.find(feat.name.val) != fieldMap.end()) return false;
+        auto featPtr = make_shared<FieldFeature>(feat);
+        fields.emplace_back(featPtr);
+        fieldMap.insert({feat.name.val, featPtr});
+        return true;
+    }
+
+    void DeleteFuncFeature(const string& name) {
+        if (!GetFuncFeaturePtr(name)) return;
+        funcMap.erase(name);
+        for (auto it = funcs.begin(); it != funcs.end(); it++) {
+            if ((*it)->name.val == name) {
+                funcs.erase(it);
+                return;
+            }
+        }
+    }
+
+    void DeleteFieldFeature(const string& name) {
+        if (!GetFieldFeaturePtr(name)) return;
+        fieldMap.erase(name);
+        for (auto it = fields.begin(); it != fields.end(); it++) {
+            if ((*it)->name.val == name) {
+                fields.erase(it);
+                return;
+            }
+        }
+    }
 };
 
 struct Program : Repr {
+  private:
     diag::TextInfo textInfo;
     vector<shared_ptr<Class>> classes;
+    unordered_map<string, shared_ptr<Class>> classMap;
 
+  public:
     Program(diag::TextInfo _textInfo) : textInfo(_textInfo) {}
+
     inline diag::TextInfo GetTextInfo() final { return textInfo; }
+
+    inline shared_ptr<Class> GetClassPtr(const string& name) {
+        return classMap.find(name) != classMap.end() ? classMap.at(name) : nullptr;
+    }
+
+    inline vector<shared_ptr<Class>> GetClasses() { return classes; }
+
+    bool AddClass(Class& cls) {
+        if (GetClassPtr(cls.name.val)) return false;
+        auto ptr = make_shared<Class>(cls);
+        classes.emplace_back(ptr);
+        classMap.insert({cls.name.val, ptr});
+        return true;
+    }
+
+    void InsertClass(Class& cls) {
+        auto ptr = GetClassPtr(cls.name.val);
+        if (ptr) *ptr = cls;
+        else AddClass(cls);
+    }
 };
 
 } // expr

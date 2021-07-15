@@ -103,6 +103,8 @@ class Diagnosis {
 
     bool Empty() {return rows.empty(); }
 
+    bool FatalOccurred() { for (auto& row : rows) if (row.level == FATAL) return true; }
+
     void Output(ostream& ostm) {
         for (auto& row : rows)
             ostm<< row.file << ":" << row.line << ":" << row.pos << ": " <<

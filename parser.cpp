@@ -18,14 +18,14 @@ using namespace repr;
 using namespace tok;
 
 bool ParsingResultChecker::Visit(repr::Program &prog) {
-    for (auto& cls : prog.classes) if (!cls || !Visit(*cls)) return false;
+    for (auto& cls : prog.GetClasses()) if (!cls || !Visit(*cls)) return false;
     return true;
 }
 
 bool ParsingResultChecker::Visit(repr::Class &cls) {
     if (cls.name.Empty()) return false;
-    for (auto& feat : cls.fields) if (!feat || !Visit(*feat)) return false;
-    for (auto& feat : cls.funcs) if (!feat || !Visit(*feat)) return false;
+    for (auto& feat : cls.GetFieldFeatures()) if (!feat || !Visit(*feat)) return false;
+    for (auto& feat : cls.GetFuncFeatures()) if (!feat || !Visit(*feat)) return false;
     return true;
 }
 
@@ -247,7 +247,10 @@ Program Parser::ParseProgram() {
 
         if (Match(Token::kClass)) {
             auto cls = ParseClass();
-            if (checker.Visit(cls)) prog.classes.emplace_back(make_shared<Class>(cls));
+            if (checker.Visit(cls) && !prog.AddClass(cls)) {
+                diag.EmitError(cls.GetTextInfo(), "class '" + cls.name.val + "' redefined, previous defined at: " +
+                prog.GetClassPtr(cls.name.val)->GetTextInfo().String());
+            }
         } else {
             diag.EmitError(GetTextInfo(), "expected 'class' in class declaration");
             SkipTo({Token::kClass});
@@ -282,10 +285,16 @@ Class Parser::ParseClass() {
     while (!Empty()) {
         if (MatchMultiple({Token::ID, Token::kOpenParen})) {
             auto feat = ParseFuncFeature();
-            if (checker.Visit(feat)) cls.funcs.emplace_back(make_shared<FuncFeature>(feat));
+            if (checker.Visit(feat) && !cls.AddFuncFeature(feat)) {
+                diag.EmitError(feat.GetTextInfo(),"method '" + feat.name.val + "' redefined, previous declared at: " +
+                cls.GetFuncFeaturePtr(feat.name.val)->GetTextInfo().String());
+            }
         } else if (Match(Token::ID)) {
             auto feat = ParseFieldFeature();
-            if (checker.Visit(feat)) cls.fields.emplace_back(make_shared<FieldFeature>(feat));
+            if (checker.Visit(feat) && !cls.AddFieldFeature(feat)) {
+                    diag.EmitError(feat.GetTextInfo(),"attribute '" + feat.name.val + "' redefined, previous declared at: " +
+                    cls.GetFieldFeaturePtr(feat.name.val)->GetTextInfo().String());
+            }
         } else {
             diag.EmitError(GetTextInfo(), "expected identifier in class feature declaration");
             break;
@@ -393,8 +402,11 @@ Formal Parser::ParseFormal() {
     return form;
 }
 
+// todo: precedence
 shared_ptr<Expr> Parser::ParseExpr() {
     stack<shared_ptr<Expr>> exprStack;
+
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(!Empty(), "expected expression", nullptr);
 
     while (!Empty()) {
         shared_ptr<Expr> expr;
@@ -492,43 +504,43 @@ shared_ptr<Expr> Parser::ParseExpr() {
         }
         else if (tokType >= Token::kBinaryST && tokType <= Token::kBinaryEND) {
             if (exprStack.empty()) throw runtime_error("expr stack is empty");
-            auto right = exprStack.top();
+            auto left = exprStack.top();
             exprStack.pop();
             switch (tokType) {
                 case Token::kAdd:
-                    expr = make_shared<Add>(ParseAdd(right));
+                    expr = make_shared<Add>(ParseAdd(left));
                     break;
                 case Token::kMinus:
-                    expr = make_shared<Minus>(ParseMinus(right));
+                    expr = make_shared<Minus>(ParseMinus(left));
                     break;
                 case Token::kMultiply:
-                    expr = make_shared<Multiply>(ParseMultiply(right));
+                    expr = make_shared<Multiply>(ParseMultiply(left));
                     break;
                 case Token::kDivide:
-                    expr = make_shared<Divide>(ParseDivide(right));
+                    expr = make_shared<Divide>(ParseDivide(left));
                     break;
                 case Token::kLessThan:
-                    expr = make_shared<LessThan>(ParseLessThan(right));
+                    expr = make_shared<LessThan>(ParseLessThan(left));
                     break;
                 case Token::kLessThanOrEqual:
-                    expr = make_shared<LessThanOrEqual>(ParseLessThanOrEqual(right));
+                    expr = make_shared<LessThanOrEqual>(ParseLessThanOrEqual(left));
                     break;
                 case Token::kDot:
-                    expr = make_shared<MethodCall>(ParseMethodCall(right));
+                    expr = make_shared<MethodCall>(ParseMethodCall(left));
                     break;
                 case Token::kEqual:
-                    expr = make_shared<Equal>(ParseEqual(right));
+                    expr = make_shared<Equal>(ParseEqual(left));
                     break;
             }
         }
-        else {
-            if (!checker.Visit(*exprStack.top())) return nullptr;
-            return exprStack.top();
-        }
+        else break;
         exprStack.push(expr);
     }
 
-    if (exprStack.empty() || !checker.Visit(*exprStack.top())) return nullptr;
+    if (exprStack.empty()) {
+        diag.EmitError(GetTextInfo(), "expected expression");
+        return nullptr;
+    }
     return exprStack.top();
 }
 

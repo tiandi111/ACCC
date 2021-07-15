@@ -12,13 +12,17 @@ effort in a one semester course while still retains many of the features of mode
 including objects, static typing, and automatic memory management. The language specification can be found here:
 [cool-manual](http://theory.stanford.edu/~aiken/software/cool/cool-manual.pdf).
 
+### Installation & Use
+TODO
+
 ### Development Status
 | Compiler Stage        |        Status       |
 | --------------------- | ------------------- |
 | Lexical Analysis      |      ✅ done        |
 | Syntactic Analysis    |      ✅ done        |
 | Semantic Analysis     |      ✅ done        |
-| Code Generation       |      ⭕️ in progress |
+| LLVM IR Generation    |    ⭕️ in progress   |
+| Assembly Generation   |        -            |
 | Optimization          |        -            |
 | Garbage Collection    |        -            | 
 

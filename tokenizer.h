@@ -36,6 +36,7 @@ class Tokenizer {
 
     vector<Token> Tokenize(const string& file, istream& in);
 
+    // todo: support comments
     Token TokDigit(istream& in);
     Token TokAlpha(istream& in);
     Token TokString(istream& in);

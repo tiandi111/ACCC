@@ -47,13 +47,6 @@ namespace parser {
         return rItem;\
     }\
 
-#define AssignIfMatchWithException(tokType, assign, msg) \
-    if (Match(tokType)) {\
-        assign;\
-    } else {\
-        throw runtime_error(msg);\
-    }\
-
 using namespace visitor;
 using namespace tok;
 

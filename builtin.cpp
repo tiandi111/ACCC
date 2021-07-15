@@ -142,5 +142,14 @@ unordered_set<string> builtin::BuiltinClassSet = {
 };
 
 unordered_set<string> builtin::InheritableBuiltInClasses = {
+    "Object",
     "IO"
+};
+
+vector<Class> builtin::BuiltinClasses = {
+    Object,
+    IO,
+    Int,
+    String,
+    Bool
 };

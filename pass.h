@@ -8,6 +8,7 @@
 #include <typeindex>
 #include <memory>
 #include <unordered_map>
+#include <iostream>
 
 #include "repr.h"
 #include "diag.h"
@@ -48,12 +49,36 @@ class Pass {
     Pass() {}
     virtual ~Pass() {};
     virtual void Required() {};
-    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; }
+    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) = 0;
 };
 
 class ProgramPass : public Pass {
   public:
-    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; }
+    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; };
+};
+
+class ClassPass : public Pass {
+  public:
+    repr::Program operator()(repr::Program& prog, PassContext& ctx) final {
+        for (auto& cls : prog.GetClasses()) operator()(*cls, ctx);
+        return prog;
+    }
+    virtual repr::Class operator()(repr::Class& cls, PassContext& ctx) { return cls; }
+};
+
+class Sequential : public Pass {
+  private:
+    vector<shared_ptr<Pass>> passes;
+
+  public:
+    Sequential (vector<shared_ptr<Pass>> _passes) : passes(move(_passes)) {}
+    repr::Program operator()(repr::Program& prog, PassContext& ctx) {
+        for (auto& pass : passes) {
+            if (ctx.diag.FatalOccurred()) break;
+            (*pass)(prog, ctx);
+        }
+        return prog;
+    }
 };
 
 // todo: think, should we pass information by passing object or passing context?

@@ -1,0 +1,34 @@
+LLVM IR
+---
+- High-level structure
+    - Module ✅
+    - Linkage Type ❓
+    - Calling Convention ❌
+    - Visibility Style ❓
+    - DLL Storage Classes ❓
+    - Thread Local Storage Models ❌
+    - Runtime Preemption Specifiers ❓
+    - Structure Types ✅
+    - Non-Integral Pointer Type ❌
+    - Global Variables ✅
+    - Function ✅
+    - Aliases ❓ (pass object by value or by reference?)
+    - IFuncs ❓ (function alias?)
+    - Comdats ❓
+    - Named Metadata ❓
+    - Parameter Attributes ❌
+    - Garbage Collector Strategy Names ⭕️ (this might be useful)
+    - Prefix Data ❓
+    - Prologue Data ❌
+    - Personality Function ❓ (exception handling?)
+    - Attribute Groups ⭕️ (grouped attributes are more readable)
+    - Function Attributes ⭕️ (seems useful, e.g alwaysinline, noinline)
+    - Call Site Attributes ❓
+    - Global Attributes ⭕️ (attributes of global variables)
+    - Operand Bundles ❓
+    - Module-Level Inline Assembly ⭕️ (might be useful)
+    - Data Layout ⭕️ (we may only support few options)
+    - Target Triple ⭕️ (we may only support few targets)
+    - Object Lifetime ⭕️ (automatic memory management?)
+    - 
+

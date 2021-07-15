@@ -26,6 +26,18 @@ using namespace tok;
 
 Diagnosis testDiag;
 
+void TestProgram() {
+    Program prog = {{}};
+
+    Class cls1 = {{"test"}, {"p1"}, {}, {}};
+    Class cls2 = {{"test"}, {"p2"}, {}, {}};
+
+    assert(prog.AddClass(cls1));
+    assert(prog.GetClassPtr(cls1.name.val)->parent.val == cls1.parent.val);
+    prog.InsertClass(cls2);
+    assert(prog.GetClassPtr(cls1.name.val)->parent.val == cls2.parent.val);
+}
+
 void TestMatchMultiple() {
     Parser parser(testDiag, {
         {Token::ID, "test", "test", 0, 0},
@@ -394,10 +406,9 @@ void TestParseClass() {
 
 void TestParseProgram() {
     vector<Token> toks;
-    ConstructProgTokens(toks, true, testFuncFeats, testFieldFeats);
-    ConstructProgTokens(toks, false , testFuncFeats, testFieldFeats);
-    Parser parser(testDiag, toks);
+    ConstructClassTokens(toks, true, testFuncFeats, testFieldFeats);
     try {
+        Parser parser(testDiag, toks);
         parser.ParseProgram();
         testDiag.Output(cout);
         assert(testDiag.Size() == 0);
@@ -643,10 +654,6 @@ void TestVirtualTable() {
     }
 }
 
-void TestSemanticCheckingPasses() {
-
-}
-
 void TestFrontEnd() {
     string filename = "../test/data/test_program";
     fstream file;
@@ -667,39 +674,39 @@ void TestFrontEnd() {
 
 
 int main() {
-//    TestMatchMultiple();
-//
-//    TestParseID();
-//    TestParseUnary();
-//    TestParseBinary();
-//    TestParseNew();
-//    TestParseCall();
-//    TestParseAssign();
-//    TestParseCase();
-//    TestParseLet();
-//    TestParseWhile();
-//    TestParseBlock();
-//    TestParseIf();
-//
-//    TestParseExpr();
-//    TestParseFormal();
-//    TestParseFuncFeature();
-//    TestParseFieldFeature();
-//    TestParseClass();
-//    TestParseProgram();
-//
-//    TestTokDigit();
-//    TestTokAlpha();
-//    TestTokString();
-//    TestTokSpecial();
-//    TestTokenizer();
-//
-//    TestRegisterPass();
-//    TestRequiredPass();
-//    TestPassManager();
-//    TestVirtualTable();
-//
-//    TestSemanticCheckingPasses();
+    TestProgram();
 
-    TestFrontEnd();
+    TestMatchMultiple();
+
+    TestParseID();
+    TestParseUnary();
+    TestParseBinary();
+    TestParseNew();
+    TestParseCall();
+    TestParseAssign();
+    TestParseCase();
+    TestParseLet();
+    TestParseWhile();
+    TestParseBlock();
+    TestParseIf();
+
+    TestParseExpr();
+    TestParseFormal();
+    TestParseFuncFeature();
+    TestParseFieldFeature();
+    TestParseClass();
+    TestParseProgram();
+
+    TestTokDigit();
+    TestTokAlpha();
+    TestTokString();
+    TestTokSpecial();
+    TestTokenizer();
+
+    TestRegisterPass();
+    TestRequiredPass();
+    TestPassManager();
+    TestVirtualTable();
+
+//    TestFrontEnd();
 }

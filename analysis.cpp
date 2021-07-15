@@ -3,6 +3,11 @@
 //
 
 #include <algorithm>
+#include <string>
+#include <unordered_set>
+#include <unordered_map>
+#include <memory>
+#include <vector>
 
 #include "analysis.h"
 #include "builtin.h"
@@ -15,78 +20,137 @@
 
 using namespace std;
 using namespace cool;
+using namespace visitor;
 
 repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassContext& ctx) {
-    prog.classes.emplace_back(make_shared<repr::Class>(builtin::Object));
-    prog.classes.emplace_back(make_shared<repr::Class>(builtin::IO));
-    prog.classes.emplace_back(make_shared<repr::Class>(builtin::Int));
-    prog.classes.emplace_back(make_shared<repr::Class>(builtin::String));
-    prog.classes.emplace_back(make_shared<repr::Class>(builtin::Bool));
 
-    for (auto& cls : prog.classes) {
+    for (auto& cls : builtin::BuiltinClasses) {
+        if (!prog.AddClass(cls)) {
+            ctx.diag.EmitError(prog.GetClassPtr(cls.name.val)->GetTextInfo(),
+                "built-in class '" + cls.name.val + "' cannot be redefined");
+            prog.InsertClass(cls);
+        }
+    }
+
+    for (auto& cls : prog.GetClasses()) {
         if (cls->parent.Empty() && cls->name.val != "Object") cls->parent.val = "Object";
     }
     return prog;
 }
 
+repr::Class ana::CheckBuiltinInheritance::operator()(repr::Class& cls, pass::PassContext& ctx) {
+    using namespace builtin;
+    if (BuiltinClassSet.find(cls.parent.val) != BuiltinClassSet.end() &&
+        InheritableBuiltInClasses.find(cls.parent.val) == InheritableBuiltInClasses.end()) {
+        ctx.diag.EmitError(cls.parent.textInfo, "cannot inherit built-in class '" + cls.parent.val + "'");
+        cls.parent.val = "Object";
+    }
+    return cls;
+}
+
+repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::PassContext& ctx) {
+    type::TypeAdvisor typeAdvisor(prog.GetClassPtr("Object"));
+
+    vector<shared_ptr<repr::Class>> stack;
+
+    auto emitCycleError = [](vector<shared_ptr<repr::Class>>& cycle, diag::Diagnosis& diag) {
+        assert(cycle.size() > 1);
+        string str = "cyclic inheritance detected: ";
+        for (int i = 0; i < cycle.size() - 1; i++) {
+            str += i == 0 ? "" : ", ";
+            str += "'" + cycle.at(i)->name.val + "' inherits '" + cycle.at(i+1)->name.val + "'";
+        }
+        diag.EmitFatal(cycle.back()->GetTextInfo(), str);
+    };
+
+    auto add = [](vector<shared_ptr<repr::Class>>& classes, type::TypeAdvisor& typeAd) {
+        while (!classes.empty()) {
+            typeAd.AddType(classes.back());
+            classes.pop_back();
+        }
+    };
+
+    for (auto cls : prog.GetClasses()) {
+        unordered_set<string> visiting;
+        while (cls) {
+            if (typeAdvisor.Contains(cls->name.val)) break;
+            stack.emplace_back(cls);
+            if (visiting.find(cls->name.val) != visiting.end()) {
+                emitCycleError(stack, ctx.diag);
+                return prog;
+            }
+            visiting.insert(cls->name.val);
+            cls = prog.GetClassPtr(cls->parent.val);
+        }
+        add(stack, typeAdvisor);
+    }
+
+
+    ctx.Set<type::TypeAdvisor>("type_advisor", typeAdvisor);
+    return prog;
+}
+
+repr::Class ana::CheckInheritedAttributes::operator()(repr::Class& cls, pass::PassContext& ctx) {
+    auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
+    auto check = [&](shared_ptr<repr::Class> ancestor) {
+        for (auto& field : cls.GetFieldFeatures()) {
+            if (ancestor->GetFieldFeaturePtr(field->name.val)) {
+                ctx.diag.EmitError(field->GetTextInfo(), "inherited attribute '" + field->name.val + "' cannot be redefined");
+            }
+        }
+        return false;
+    };
+    typeAdvisor.BottomUpVisit(cls.parent.val, check);
+    return cls;
+}
+
+repr::Class ana::AddInheritedAttributes::operator()(repr::Class& cls, pass::PassContext& ctx) {
+    using namespace repr;
+    auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
+
+    vector<shared_ptr<FieldFeature>> feats = cls.GetFieldFeatures();
+    for (auto& feat : feats) cls.DeleteFieldFeature(feat->name.val);
+
+    stack<shared_ptr<Class>> stack;
+    shared_ptr<Class> cur = typeAdvisor.GetTypeRepr(cls.parent.val);
+    while (cur) {
+        stack.push(cur);
+        cur = typeAdvisor.GetTypeRepr(cur->parent.val);
+    }
+
+    while (!stack.empty()) {
+        for (auto& field : stack.top()->GetFieldFeatures()) cls.AddFieldFeature(*field);
+        stack.pop();
+    }
+
+    for(auto& feat : feats) cls.AddFieldFeature(*feat);
+    return cls;
+}
+
+repr::Class ana::CheckInheritedMethods::operator()(repr::Class& cls, pass::PassContext& ctx) {
+    auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
+    auto valid = [](repr::FuncFeature& a, repr::FuncFeature& b) {
+        if (a.name.val != b.name.val || a.type.val != b.type.val || a.args.size() != b.args.size()) return false;
+        for(int i = 0; i < a.args.size(); i++) {
+            if (a.args.at(i)->type.val != b.args.at(i)->type.val) return false;
+        }
+        return true;
+    };
+    auto check = [&](shared_ptr<repr::Class> ancestor) {
+        for (auto& func : cls.GetFuncFeatures()) {
+            if (ancestor->GetFuncFeaturePtr(func->name.val) &&
+            !valid(*func, *(ancestor->GetFuncFeaturePtr(func->name.val)))) {
+                ctx.diag.EmitError(func->GetTextInfo(), "invalid method overload: '" + func->name.val + "'");
+            }
+        }
+        return false;
+    };
+    typeAdvisor.BottomUpVisit(cls.parent.val, check);
+    return cls;
+}
+
 repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassContext& ctx) {
     using namespace visitor;
-
-    // todo: attribute redefinition checker
-    class ClassRedefineChecker : public ProgramVisitor {
-      public:
-        pass::PassContext& ctx;
-
-        ClassRedefineChecker(pass::PassContext& _ctx) : ctx(_ctx) {}
-
-        void Visit(repr::Program &prog) {
-            unordered_map<string, shared_ptr<repr::Class>> classes;
-            for (auto it = prog.classes.begin(); it != prog.classes.end(); ) {
-                auto cls = *it;
-                string name = cls->name.val;
-                if (classes.find(name) != classes.end()) {
-                    if (builtin::BuiltinClassSet.find(name) != builtin::BuiltinClassSet.end())
-                        ctx.diag.EmitError(cls->GetTextInfo(), "built-in class '" + name + "' cannot be redefined");
-                    else
-                        ctx.diag.EmitError(cls->GetTextInfo(),
-                            "class '" + cls->name.val +"' redefined, see previous declararion at: " +
-                            classes.at(name)->GetTextInfo().String());
-                    prog.classes.erase(it);
-                } else {
-                    classes.insert({cls->name.val, cls});
-                    it++;
-                }
-            }
-        }
-    };
-
-    class FuncRedefineChecker : public ProgramVisitor, ClassVisitor {
-      public:
-        pass::PassContext& ctx;
-
-        FuncRedefineChecker(pass::PassContext& _ctx) : ctx(_ctx) {}
-
-        void Visit(repr::Program &prog) {
-            for (auto& cls : prog.classes) Visit(*cls);
-        }
-
-        // todo: fix func redefinition bug
-        void Visit(repr::Class &cls) {
-            unordered_map<string, shared_ptr<repr::FuncFeature>> funcs;
-            for (auto it = cls.funcs.begin(); it != cls.funcs.end(); ) {
-                auto func = *it;
-                if (funcs.find(func->name.val) != funcs.end()) {
-                    ctx.diag.EmitError(func->GetTextInfo(),
-                        "function '" + func->name.val + "' redefined, see previous declaration at line: " +
-                            funcs.at(func->name.val)->GetTextInfo().String());
-                    cls.funcs.erase(it);
-                } else {
-                    funcs.insert({func->name.val, func});
-                    it++;
-                }
-            }
-        }
-    };
 
     class Visitor : public ProgramVisitor, ClassVisitor, FuncFeatureVisitor,
         FieldFeatureVisitor, FormalVisitor, ExprVisitor<void> {
@@ -95,14 +159,14 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
 
         void Visit(repr::Program &prog) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &cls : prog.classes) Visit(*cls);
+                for (auto &cls : prog.GetClasses()) Visit(*cls);
             }, nullptr)
         }
 
         void Visit(repr::Class &cls) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &feat : cls.funcs) Visit(*feat);
-                for (auto &feat : cls.fields) Visit(*feat);
+                for (auto &feat : cls.GetFuncFeatures()) Visit(*feat);
+                for (auto &feat : cls.GetFieldFeatures()) Visit(*feat);
             }, make_shared<repr::Class>(cls))
         }
 
@@ -217,116 +281,13 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
         }
     };
 
-    ClassRedefineChecker clsChecker(ctx);
-    clsChecker.Visit(prog);
-    FuncRedefineChecker funcChecker(ctx);
-    funcChecker.Visit(prog);
     Visitor vis;
     vis.Visit(prog);
     ctx.Set<ScopedTableSpecializer<SymbolTable>>("symbol_table", vis.stable);
     return prog;
 }
 
-void ana::InitSymbolTable::Required() { pass::PassManager::Required<InitSymbolTable, InstallBuiltin>(); }
-
-repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::PassContext& ctx) {
-    using namespace visitor;
-    using namespace builtin;
-
-    class Checker : public ProgramVisitor, ClassVisitor {
-      public:
-        pass::PassContext& ctx;
-
-        Checker(pass::PassContext& _ctx) : ctx(_ctx) {}
-
-        void Visit(repr::Program &prog) { for (auto &cls : prog.classes) Visit(*cls); }
-
-        void Visit(repr::Class &cls) {
-            if (BuiltinClassSet.find(cls.parent.val) != BuiltinClassSet.end() &&
-                InheritableBuiltInClasses.find(cls.parent.val) == InheritableBuiltInClasses.end() &&
-                cls.parent.val != "Object") {
-                ctx.diag.EmitError(cls.parent.textInfo, "cannot inherit built-in class '" + cls.parent.val + "'");
-                cls.parent.val = "Object";
-            }
-        }
-    };
-
-    class Visitor : public ProgramVisitor, ClassVisitor {
-      public:
-        pass::PassContext& ctx;
-        ScopedTableSpecializer<SymbolTable>& stable;
-        type::TypeAdvisor typeAdvisor;
-        unordered_map<string, shared_ptr<repr::Class>> map;
-
-        Visitor(pass::PassContext& _ctx, ScopedTableSpecializer<SymbolTable>& _stable) : ctx(_ctx), stable(_stable),
-        typeAdvisor(make_shared<repr::Class>(builtin::Object)) {
-            stable.InitTraverse();
-        }
-
-        void Visit(repr::Program& prog) {
-            ENTER_SCOPE_GUARD(stable, {
-                for (auto& cls : prog.classes) map.insert({cls->name.val, cls});
-                for (auto& cls : prog.classes) Visit(cls);
-            })
-        }
-
-        void Visit(shared_ptr<repr::Class> cls) {
-            if (!typeAdvisor.Contains(cls->name.val)) {
-                vector<shared_ptr<repr::Class>> sorted;
-                while (!typeAdvisor.Contains(cls->name.val)) {
-                    sorted.emplace_back(cls);
-                    if (cls->parent.Empty()) break;
-                    cls = map.at(cls->parent.val);
-                }
-                for (auto it = sorted.rbegin(); it != sorted.rend(); it++) {
-                    typeAdvisor.AddType(*it);
-                }
-            }
-        }
-    };
-
-    class InheritedAttrMutator : public ProgramVisitor, ClassVisitor {
-      public:
-        ScopedTableSpecializer<SymbolTable>& stable;
-        type::TypeAdvisor& typeAdvisor;
-
-        InheritedAttrMutator(ScopedTableSpecializer<SymbolTable>& _stable, type::TypeAdvisor& _typeAdvisor)
-        : stable(_stable), typeAdvisor(_typeAdvisor) {
-            stable.InitTraverse();
-        }
-
-        void Visit(repr::Program& prog) {
-            ENTER_SCOPE_GUARD(stable, for (auto& cls : prog.classes) Visit(*cls);)
-        }
-
-        void Visit(repr::Class &cls) {
-            auto ancestor = typeAdvisor.GetTypeRepr(cls.parent.val);
-            while (ancestor) {
-                for (auto& field : ancestor->fields) {
-                    if (stable.GetIdAttr(field->name.val)) continue;
-                    if (field->type.val == "SELF_TYPE") stable.Insert(attr::IdAttr{field->name.val, cls.name.val});
-                    else stable.Insert(attr::IdAttr{field->name.val, field->type.val});
-                }
-                ancestor = typeAdvisor.GetTypeRepr(ancestor->parent.val);
-            }
-        }
-    };
-
-    auto stable = ctx.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table");
-    Checker chek(ctx);
-    chek.Visit(prog);
-    Visitor vis(ctx, *stable);
-    vis.Visit(prog);
-    InheritedAttrMutator mutator(*stable, vis.typeAdvisor);
-    mutator.Visit(prog);
-    ctx.Set<type::TypeAdvisor>("type_advisor", vis.typeAdvisor);
-    return prog;
-}
-
-void ana::BuildInheritanceTree::Required() { pass::PassManager::Required<BuildInheritanceTree, InitSymbolTable>(); }
-
 repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassContext& ctx) {
-    using namespace visitor;
     using namespace builtin;
     using namespace tok;
 
@@ -354,14 +315,14 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         }
 
         void Visit(repr::Program &prog) {
-            ENTER_SCOPE_GUARD(stable,for (auto& cls : prog.classes) Visit(*cls);)
+            ENTER_SCOPE_GUARD(stable,for (auto& cls : prog.GetClasses()) Visit(*cls);)
         }
 
         void Visit(repr::Class &cls) {
             ENTER_SCOPE_GUARD(stable, {
                 auto& p = cls.parent;
-                for (auto& feat : cls.fields) Visit(*feat);
-                for (auto& feat : cls.funcs) Visit(*feat);
+                for (auto& feat : cls.GetFieldFeatures()) Visit(*feat);
+                for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
             })
         }
 
@@ -443,17 +404,16 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
             TypeName rtype = "";
             auto dispatch = [&](shared_ptr<repr::Class> cls) {
                 if (!cls) throw runtime_error("class pointer cannot be nullptr");
-                auto it = find_if(cls->funcs.begin(), cls->funcs.end(),
-                                  [&expr](shared_ptr<repr::FuncFeature>& func){ return func->name.val == expr.id->name.val; });
-                if (it == cls->funcs.end()) return false;
-                if (expr.args.size() != (*it)->args.size()) return false;
+                auto funcPtr = cls->GetFuncFeaturePtr(expr.id->name.val);
+                if (!funcPtr) return false;
+                if (expr.args.size() != funcPtr->args.size()) return false;
                 for (int i = 0; i < expr.args.size(); i++) {
                     auto& arg = expr.args.at(i);
                     TypeName type = ExprVisitor<TypeName>::Visit(*arg);
-                    TypeName expected = (*it)->args.at(i)->type.val;
+                    TypeName expected = funcPtr->args.at(i)->type.val;
                     if (!typeAdvisor.Conforms(type, expected, type)) return false;
                 }
-                rtype = (*it)->type.val;
+                rtype = funcPtr->type.val;
                 return true;
             };
             typeAdvisor.BottomUpVisit(type, dispatch);
@@ -588,5 +548,3 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
     vis.Visit(prog);
     return prog;
 }
-
-void ana::TypeChecking::Required() { pass::PassManager::Required<TypeChecking, BuildInheritanceTree>(); }

@@ -16,13 +16,13 @@ using namespace cool::tok;
 
 vector<vector<Token>> testFieldFeats = {
     {
-        {Token::ID, "test", "test", 0, 0},
+        {Token::ID, "test1", "test", 0, 0},
         {Token::kColon, "", "", 0, 0},
         {Token::TypeID, "test", "test", 0, 0},
         {Token::kSemiColon, "test", "test", 0, 0}
     },
     {
-        {Token::ID, "test", "test", 0, 0},
+        {Token::ID, "test2", "test", 0, 0},
         {Token::kColon, "", "", 0, 0},
         {Token::TypeID, "test", "test", 0, 0},
         {Token::kAssignment, "test", "test", 0, 0},
@@ -33,7 +33,7 @@ vector<vector<Token>> testFieldFeats = {
 
 vector<vector<Token>> testFuncFeats = {
     {
-        {Token::ID, "test", "test", 0, 0},
+        {Token::ID, "test1", "test", 0, 0},
         {Token::kOpenParen, "", "", 0, 0},
         {Token::kCloseParen, "test", "test", 0, 0},
         {Token::kColon, "test", "test", 0, 0},
@@ -44,7 +44,7 @@ vector<vector<Token>> testFuncFeats = {
         {Token::kSemiColon, "test", "test", 0, 0}
     },
     {
-        {Token::ID, "test", "test", 0, 0},
+        {Token::ID, "test2", "test", 0, 0},
         {Token::kOpenParen, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "", "", 0, 0},
@@ -58,7 +58,7 @@ vector<vector<Token>> testFuncFeats = {
         {Token::kSemiColon, "test", "test", 0, 0}
     },
     {
-        {Token::ID, "test", "test", 0, 0},
+        {Token::ID, "test3", "test", 0, 0},
         {Token::kOpenParen, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "", "", 0, 0},
@@ -83,8 +83,8 @@ void ConstructClassTokens(vector<Token>& dest, bool inherits,
     dest.emplace_back(Token{Token::kClass, "test", "test", 0, 0});
     dest.emplace_back(Token{Token::TypeID, "test", "test", 0, 0});
     if (inherits) {
-        dest.emplace_back(Token{Token::kInheirits, "test", "test", 0, 0});
-        dest.emplace_back(Token{Token::TypeID, "test", "test", 0, 0});
+        dest.emplace_back(Token{Token::kInheirits, "", "", 0, 0});
+        dest.emplace_back(Token{Token::TypeID, "Object", "Object", 0, 0});
     }
     dest.emplace_back(Token{Token::kOpenBrace, "test", "test", 0, 0});
     for (auto& toks : funcFeats) {
@@ -101,11 +101,6 @@ void ConstructClassTokens(vector<Token>& dest, bool inherits,
     dest.emplace_back(Token{Token::kSemiColon, "test", "test", 0, 0});
 }
 
-void ConstructProgTokens(vector<Token>& dest, bool inherits,
-    vector<vector<Token>>& funcFeats, vector<vector<Token>>& fieldFeats) {
-    ConstructClassTokens(dest, inherits, funcFeats, fieldFeats);
-}
-
 void TestMatchMultiple();
 
 struct ParserTestCase {
@@ -113,6 +108,8 @@ struct ParserTestCase {
     vector<Token> toks;
     bool throwExp;
 };
+
+void TestProgram();
 
 void TestParseID();
 void TestParseUnary();

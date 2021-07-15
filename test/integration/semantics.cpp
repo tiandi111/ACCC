@@ -7,10 +7,8 @@
 
 #include "semantics.h"
 #include "../../analysis.h"
-#include "../../diag.h"
 #include "../../tokenizer.h"
 #include "../../parser.h"
-#include "../../pass.h"
 
 using namespace std;
 using namespace cool;
@@ -30,10 +28,7 @@ void cool::integration::RunFrontEnd(const Test& test) {
         auto prog = parser.ParseProgram();
         PassContext passContext(diagnosis);
         PassManager::Refresh();
-        PassManager::Register<InstallBuiltin>();
-        PassManager::Register<InitSymbolTable>();
-        PassManager::Register<BuildInheritanceTree>();
-        PassManager::Register<TypeChecking>();
+        PassManager::Register<SemanticChecking>();
         PassManager::Run(prog, passContext);
         if (!diagnosis.Empty()) {
             cout<< "-------------- " << test.title << ": " << case_.title << " OUTPUT --------------" <<endl;

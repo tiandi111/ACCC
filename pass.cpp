@@ -21,7 +21,10 @@ void PassManager::Run(repr::Program& prog, PassContext& ctx) {
         pm.topsort();
     }
 
-    for (int i = 0; i < pm.passes.size() ; i++) (*pm.passes.at(pm.sorted[i]))(prog, ctx);
+    for (int i = 0; i < pm.passes.size() ; i++) {
+        if (ctx.diag.FatalOccurred()) return;
+        (*pm.passes.at(pm.sorted[i]))(prog, ctx);
+    }
 }
 
 void PassManager::Refresh() {

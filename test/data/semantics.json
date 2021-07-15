@@ -219,7 +219,7 @@
       },
       {
         "title": "Class Method Redefinition",
-        "program": "class A { do() : Int {}; do() : Int {}; };",
+        "program": "class A { do() : Int {1}; do() : Int {1}; };",
         "pass": false
       }
     ]
@@ -261,11 +261,6 @@
         "title": "Invalid Call With SELF_TYPE (Custom Class, Down Cast)",
         "program": "class A { foo():A{new A}; bar():SELF_TYPE{foo()}; };",
         "pass": false
-      },
-      {
-        "title": "Overload Inherited Method",
-        "program": "class A { foo():Int{1}; }; class B inherits A { foo():String{\"\"}; bar():String{foo()}; };",
-        "pass": true
       }
     ]
   },
@@ -318,9 +313,9 @@
         "pass": true
       },
       {
-        "title": "Overload Inherited Attributes",
-        "program": "class A { a : Int; }; class B inherits A { a : String; do() : String { a }; };",
-        "pass": true
+        "title": "Redefine Inherited Attributes",
+        "program": "class A { a : Int; }; class B inherits A { a : String; };",
+        "pass": false
       },
       {
         "title": "Call Inherited Methods",
@@ -333,9 +328,39 @@
         "pass": true
       },
       {
-        "title": "Overload Inherited Methods",
-        "program": "class A { do() : Int { 1 }; }; class B inherits A { do() : String { \"\" }; doB() : String { do() }; };",
+        "title": "Valid Method Overloading (Wrong Return Type)",
+        "program": "class A { foo(a:Int, b:Bool):Int{1}; }; class B inherits A { foo(c:Int, d:Bool):Int{2}; };",
         "pass": true
+      },
+      {
+        "title": "Invalid Method Overloading (Wrong Return Type)",
+        "program": "class A { foo():Int{1}; }; class B inherits A { foo():String{\"\"}; };",
+        "pass": false
+      },
+      {
+        "title": "Invalid Method Overloading (Wrong Parameter Type)",
+        "program": "class A { foo(a:Int):Int{1}; }; class B inherits A { foo(a:String):Int{1}; };",
+        "pass": false
+      },
+      {
+        "title": "Cyclic Inheritance 1",
+        "program": "class A inherits B {}; class B inherits A {};",
+        "pass": false
+      },
+      {
+        "title": "Cyclic Inheritance 2",
+        "program": "class A inherits B {}; class B inherits C {}; class C inherits A {};",
+        "pass": false
+      },
+      {
+        "title": "Cyclic Inheritance 3",
+        "program": "class A inherits B {}; class B inherits C {}; class C inherits B {};",
+        "pass": false
+      },
+      {
+        "title": "Cyclic Inheritance & Builtin Class Inheritance, Redefinition",
+        "program": "class String inherits A {}; class A inherits String {};",
+        "pass": false
       }
     ]
   },
@@ -449,7 +474,7 @@
     "cases": [
       {
         "title": "Function Return Type",
-        "program": "class A { do() : SELF_TYPE {}; };",
+        "program": "class A { do() : SELF_TYPE {new SELF_TYPE}; };",
         "pass": true
       },
       {
