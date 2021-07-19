@@ -6,9 +6,9 @@
 #include <sstream>
 
 #include "semantics.h"
-#include "../../analysis.h"
-#include "../../tokenizer.h"
-#include "../../parser.h"
+#include "../../frontend/analysis.h"
+#include "../../frontend/tokenizer.h"
+#include "../../frontend/parser.h"
 
 using namespace std;
 using namespace cool;

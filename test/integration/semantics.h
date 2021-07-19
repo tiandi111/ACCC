@@ -12,7 +12,7 @@
 #include <fstream>
 
 #include "../../include/json.hpp"
-#include "../../diag.h"
+#include "../../frontend/diag.h"
 
 using namespace std;
 

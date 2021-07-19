@@ -16,15 +16,15 @@ including objects, static typing, and automatic memory management. The language 
 TODO
 
 ### Development Status
-| Compiler Stage        |        Status       |
-| --------------------- | ------------------- |
-| Lexical Analysis      |      ✅ done        |
-| Syntactic Analysis    |      ✅ done        |
-| Semantic Analysis     |      ✅ done        |
-| LLVM IR Generation    |    ⭕️ in progress   |
-| Assembly Generation   |        -            |
-| Optimization          |        -            |
-| Garbage Collection    |        -            | 
+| Compiler Stage          |        Status       |
+| ------------------------| ------------------- |
+| Lexical Analysis        |      ✅ done        |
+| Syntactic Analysis      |      ✅ done        |
+| Semantic Analysis       |      ✅ done        |
+| Mini-LLVM Infra         |    ⭕️ in progress   |
+| Optimization            |        -            |
+| Machine Code Generation |        -            |
+| Garbage Collection      |        -            | 
 
 ### Architecture
 TODO

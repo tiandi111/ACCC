@@ -6,11 +6,11 @@
 #include <fstream>
 
 #include "unit.h"
-#include "../parser.h"
-#include "../tokenizer.h"
-#include "../pass.h"
-#include "../analysis.h"
-#include "../builtin.h"
+#include "../frontend/parser.h"
+#include "../frontend/tokenizer.h"
+#include "../frontend/pass.h"
+#include "../frontend/analysis.h"
+#include "../frontend/builtin.h"
 
 using namespace std;
 

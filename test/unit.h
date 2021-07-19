@@ -8,8 +8,8 @@
 #include <string>
 #include <vector>
 
-#include "../token.h"
-#include "../vtable.h"
+#include "../frontend/token.h"
+#include "../frontend/vtable.h"
 
 using namespace std;
 using namespace cool::tok;
