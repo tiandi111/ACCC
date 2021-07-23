@@ -149,25 +149,38 @@ repr::Class ana::CheckInheritedMethods::operator()(repr::Class& cls, pass::PassC
     return cls;
 }
 
+repr::Class ana::AddInheritedMethods::operator()(repr::Class& cls, pass::PassContext& ctx) {
+    auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
+
+    auto cur = typeAdvisor.GetTypeRepr(cls.parent.val);
+    while (cur) {
+        for (auto& func : cur->GetFuncFeatures())
+            cls.AddFuncFeature(*func);
+        cur = typeAdvisor.GetTypeRepr(cur->parent.val);
+    }
+
+    return cls;
+}
+
 repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassContext& ctx) {
     using namespace visitor;
 
-    class Visitor : public ProgramVisitor, ClassVisitor, FuncFeatureVisitor,
-        FieldFeatureVisitor, FormalVisitor, ExprVisitor<void> {
+    class Visitor : public ProgramVisitor<void>, ClassVisitor<void>, FuncFeatureVisitor<void>,
+        FieldFeatureVisitor<void>, FormalVisitor<void>, ExprVisitor<void> {
       public:
         ScopedTableSpecializer<SymbolTable> stable;
 
         void Visit(repr::Program &prog) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &cls : prog.GetClasses()) Visit(*cls);
+                for (auto &cls : prog.GetClasses()) Visit(cls);
             }, nullptr)
         }
 
-        void Visit(repr::Class &cls) {
+        void Visit(shared_ptr<repr::Class> cls) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &feat : cls.GetFuncFeatures()) Visit(*feat);
-                for (auto &feat : cls.GetFieldFeatures()) Visit(*feat);
-            }, make_shared<repr::Class>(cls))
+                for (auto &feat : cls->GetFuncFeatures()) Visit(*feat);
+                for (auto &feat : cls->GetFieldFeatures()) Visit(*feat);
+            }, cls)
         }
 
         void Visit(repr::FuncFeature &feat) {
@@ -293,8 +306,8 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
 
     using TypeName = string;
 
-    class Visitor : public ProgramVisitor, ClassVisitor, FuncFeatureVisitor,
-        FieldFeatureVisitor, FormalVisitor, ExprVisitor<TypeName> {
+    class Visitor : public ProgramVisitor<void>, ClassVisitor<void>, FuncFeatureVisitor<void>,
+        FieldFeatureVisitor<void>, FormalVisitor<void>, ExprVisitor<TypeName> {
       private:
         string invalidAssignmentMsg(const TypeName& assignType, const TypeName& toType) {
             return string("cannot assign value of '" + assignType + "' to '" + toType +  "'");
@@ -389,37 +402,54 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
 
         TypeName Visit_(repr::Call& expr) {
             TypeName rType;
-            ENTER_SCOPE_GUARD(stable, rType = CheckCall(stable.GetClass()->name.val, expr);)
+            ENTER_SCOPE_GUARD(stable,
+                auto funcPtr = CheckCall(stable.GetClass()->name.val, expr);
+                if (funcPtr) {
+                    expr.link = funcPtr;
+                    rType = funcPtr->type.val;
+                })
             return rType;
         }
 
         TypeName Visit_(repr::MethodCall& expr) {
             TypeName rType;
             ENTER_SCOPE_GUARD(stable,
-                rType = CheckCall(ExprVisitor<TypeName>::Visit(*expr.left), *static_pointer_cast<repr::Call>(expr.right));)
+                auto callExpr = static_pointer_cast<repr::Call>(expr.right);
+                auto funcPtr = CheckCall(ExprVisitor<TypeName>::Visit(*expr.left), *callExpr);
+                if (funcPtr) {
+                    callExpr->link = funcPtr;
+                    rType = funcPtr->type.val;
+                })
             return rType;
         }
 
-        TypeName CheckCall(TypeName type, repr::Call& expr) {
-            TypeName rtype = "";
-            auto dispatch = [&](shared_ptr<repr::Class> cls) {
-                if (!cls) throw runtime_error("class pointer cannot be nullptr");
-                auto funcPtr = cls->GetFuncFeaturePtr(expr.id->name.val);
-                if (!funcPtr) return false;
-                if (expr.args.size() != funcPtr->args.size()) return false;
-                for (int i = 0; i < expr.args.size(); i++) {
-                    auto& arg = expr.args.at(i);
-                    TypeName type = ExprVisitor<TypeName>::Visit(*arg);
-                    TypeName expected = funcPtr->args.at(i)->type.val;
-                    if (!typeAdvisor.Conforms(type, expected, type)) return false;
+        shared_ptr<repr::FuncFeature> CheckCall(TypeName type, repr::Call& expr) {
+            auto cls = typeAdvisor.GetTypeRepr(type);
+            if (!cls) {
+                ctx.diag.EmitError(expr.GetTextInfo(), "caller type '" + type + "' not found");
+                return nullptr;
+            }
+            auto funcPtr = cls->GetFuncFeaturePtr(expr.id->name.val);
+            if (!funcPtr) {
+                ctx.diag.EmitError(expr.GetTextInfo(), "method '" + expr.id->name.val + "'  found");
+                return nullptr;
+            }
+            if (expr.args.size() != funcPtr->args.size()) {
+                ctx.diag.EmitError(expr.GetTextInfo(), "expected " + to_string(funcPtr->args.size()) +
+                " arguments, got " + to_string(expr.args.size()));
+                return funcPtr;
+            }
+            for (int i = 0; i < expr.args.size(); i++) {
+                auto& arg = expr.args.at(i);
+                TypeName got = ExprVisitor<TypeName>::Visit(*arg);
+                TypeName expected = funcPtr->args.at(i)->type.val;
+                if (!typeAdvisor.Conforms(got, expected, got)) {
+                    ctx.diag.EmitError(expr.GetTextInfo(), "invalid argument '" + funcPtr->args.at(i)->name.val +
+                    "': expected '" + expected + "', got '" + got + "'");
+                    return funcPtr;
                 }
-                rtype = funcPtr->type.val;
-                return true;
-            };
-            typeAdvisor.BottomUpVisit(type, dispatch);
-            if (rtype.empty())
-                ctx.diag.EmitError(expr.id->GetTextInfo(),"no available dispatch found");
-            return rtype;
+            }
+            return funcPtr;
         }
 
         TypeName Visit_(repr::Divide& expr) {

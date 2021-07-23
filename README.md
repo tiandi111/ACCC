@@ -21,7 +21,9 @@ TODO
 | Lexical Analysis        |      ✅ done        |
 | Syntactic Analysis      |      ✅ done        |
 | Semantic Analysis       |      ✅ done        |
-| Mini-LLVM Infra         |    ⭕️ in progress   |
+| Runtime System          |    ⭕️ in progress   |
+| LLVM IR Generation      |    ⭕️ in progress   |
+| Mini-LLVM Infra         |        -            |
 | Optimization            |        -            |
 | Machine Code Generation |        -            |
 | Garbage Collection      |        -            | 

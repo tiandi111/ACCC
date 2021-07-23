@@ -17,30 +17,39 @@ namespace cool {
 
 namespace visitor {
 
+template<typename R, typename... Args>
 class ProgramVisitor {
   public:
-    virtual void Visit(repr::Program &prog) {}
+    virtual R Visit(repr::Program &prog, Args... args) { throw "Visit not defined"; }
+    virtual R Visit(shared_ptr<repr::Program> &prog, Args... args) { throw "Visit not defined"; }
 };
 
+template<typename R, typename... Args>
 class ClassVisitor {
   public:
-    virtual void Visit(repr::Class &cls) {}
-    virtual void Visit(shared_ptr<repr::Class> ptr) {}
+    virtual R Visit(repr::Class &cls, Args... args) { throw "Visit not defined"; }
+    virtual R Visit(shared_ptr<repr::Class> ptr, Args... args) { throw "Visit not defined"; }
 };
 
+template<typename R, typename... Args>
 class FuncFeatureVisitor {
   public:
-    virtual void Visit(repr::FuncFeature &feat) {}
+    virtual R Visit(repr::FuncFeature &feat, Args... args) { throw "Visit not defined"; }
+    virtual R Visit(shared_ptr<repr::FuncFeature> &feat, Args... args) { throw "Visit not defined"; }
 };
 
+template<typename R, typename... Args>
 class FieldFeatureVisitor {
   public:
-    virtual void Visit(repr::FieldFeature &feat) {}
+    virtual R Visit(repr::FieldFeature &feat, Args... args) { throw "Visit not defined"; }
+    virtual R Visit(shared_ptr<repr::FieldFeature> &feat, Args... args) { throw "Visit not defined"; }
 };
 
+template<typename R, typename... Args>
 class FormalVisitor {
   public:
-    virtual void Visit(repr::Formal &form) {}
+    virtual R Visit(repr::Formal &form, Args... args) { throw "Visit not defined"; }
+    virtual R Visit(shared_ptr<repr::Formal> &form, Args... args) { throw "Visit not defined"; }
 };
 
 template<typename R, typename... Args>

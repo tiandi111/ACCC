@@ -14,13 +14,13 @@
 #include "diag.h"
 
 #define PassID(PassClass) std::type_index(typeid(PassClass))
+
 using namespace std;
 typedef type_index PassID;
 
 namespace cool {
 
 namespace pass {
-
 class PassContext {
   public:
     diag::Diagnosis& diag;
@@ -139,4 +139,7 @@ class PassManager {
 } // cool
 
 } // pass
+
+#undef PassID
+
 #endif //COOL_PASS_H

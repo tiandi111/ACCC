@@ -15,7 +15,7 @@ shared_ptr<TypeAdvisor::Node> TypeAdvisor::get(const string& type) {
 }
 
 TypeAdvisor::TypeAdvisor(shared_ptr<repr::Class> rootClass) {
-    root = make_shared<Node>(Node{rootClass->name.val, rootClass});
+    root = make_shared<Node>(Node{rootClass->name.val, rootClass, nullptr, {}});
     map.insert({rootClass->name.val, root});
 }
 

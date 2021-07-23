@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 #include <memory>
+#include <iostream>
 
 #include "token.h"
 #include "diag.h"
@@ -19,6 +20,7 @@ namespace cool {
     
 namespace repr {
 
+// todo: provide move ctor
 struct Attr {
     diag::TextInfo textInfo;
 
@@ -93,9 +95,11 @@ struct Assign : public Expr {
     inline diag::TextInfo GetTextInfo() final { return id->GetTextInfo(); }
 };
 
+struct FuncFeature;
 struct Call : public Expr {
     shared_ptr<ID> id;
     vector<shared_ptr<Expr>> args;
+    shared_ptr<FuncFeature> link;
     Call() = default;
     inline diag::TextInfo GetTextInfo() final { return id->GetTextInfo(); }
 };
@@ -264,7 +268,8 @@ struct Class : Repr {
     Class() = default;
 
     Class(StringAttr _name, StringAttr _parent, vector<shared_ptr<FuncFeature>> _funcs,
-        vector<shared_ptr<FieldFeature>> _fields) : name(_name), parent(_parent), funcs(_funcs), fields(_fields) {
+        vector<shared_ptr<FieldFeature>> _fields)
+        : name(move(_name)), parent(move(_parent)), funcs(move(_funcs)), fields(move(_fields)) {
         for (auto& func : funcs) funcMap.insert({func->name.val, func});
         for (auto& field : fields) fieldMap.insert({field->name.val, field});
     }
@@ -339,7 +344,7 @@ struct Program : Repr {
 
     inline vector<shared_ptr<Class>> GetClasses() { return classes; }
 
-    bool AddClass(Class& cls) {
+    bool AddClass(const Class& cls) {
         if (GetClassPtr(cls.name.val)) return false;
         auto ptr = make_shared<Class>(cls);
         classes.emplace_back(ptr);
@@ -347,7 +352,7 @@ struct Program : Repr {
         return true;
     }
 
-    void InsertClass(Class& cls) {
+    void InsertClass(const Class& cls) {
         auto ptr = GetClassPtr(cls.name.val);
         if (ptr) *ptr = cls;
         else AddClass(cls);

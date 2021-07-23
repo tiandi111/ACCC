@@ -44,7 +44,12 @@ class AddInheritedAttributes : public pass::ClassPass {
 };
 
 class CheckInheritedMethods : public pass::ClassPass {
-public:
+  public:
+    repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
+};
+
+class AddInheritedMethods : public pass::ClassPass {
+  public:
     repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
 };
 
@@ -61,14 +66,15 @@ class TypeChecking : public pass::ProgramPass {
 class SemanticChecking : public pass::Sequential {
   public:
     SemanticChecking() : pass::Sequential({
-        make_shared<InstallBuiltin>(InstallBuiltin()),
-        make_shared<CheckBuiltinInheritance>(CheckBuiltinInheritance()),
-        make_shared<BuildInheritanceTree>(BuildInheritanceTree()),
-        make_shared<CheckInheritedAttributes>(CheckInheritedAttributes()),
-        make_shared<AddInheritedAttributes>(AddInheritedAttributes()),
-        make_shared<CheckInheritedMethods>(CheckInheritedMethods()),
-        make_shared<InitSymbolTable>(InitSymbolTable()),
-        make_shared<TypeChecking>(TypeChecking())
+        make_shared<InstallBuiltin>(),
+        make_shared<CheckBuiltinInheritance>(),
+        make_shared<BuildInheritanceTree>(),
+        make_shared<CheckInheritedAttributes>(),
+        make_shared<AddInheritedAttributes>(),
+        make_shared<CheckInheritedMethods>(),
+        make_shared<AddInheritedMethods>(),
+        make_shared<InitSymbolTable>(),
+        make_shared<TypeChecking>()
     }) {}
 };
 
