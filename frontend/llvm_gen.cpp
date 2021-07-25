@@ -4,6 +4,9 @@
 
 #include <vector>
 #include <memory>
+#include <string>
+
+#include <stdlib.h>
 
 #include "llvm-c/Core.h"
 #include "llvm/ADT/STLExtras.h"
@@ -25,17 +28,64 @@
 #include "llvm/IR/Verifier.h"
 
 #include "llvm_gen.h"
+#include "stable.h"
 
 using namespace std;
 using namespace cool;
 using namespace irgen;
 using namespace llvm;
 
-LLVMGen::LLVMGen() {
+/*-------------------------------------*/
+/* Symbol Table For LLVM IR Generator  */
+/*-------------------------------------*/
+LLVMGen::SymbolTable::SymbolTable(adt::ScopedTableSpecializer<adt::SymbolTable> &_stable)
+: stable(_stable) {
+    for (int i = 0; i < stable.Size(); i++) valueTable.insert({i, {}});
+    stable.InitTraverse();
+}
+
+// todo: recursively look up
+llvm::Value* LLVMGen::SymbolTable::get(const string& name) {
+    return valueTable.at(stable.Idx()).at(name);
+}
+
+void LLVMGen::SymbolTable::insert(const string& name, llvm::Value* value) {
+    valueTable.at(stable.Idx()).insert({name, value});
+}
+
+void LLVMGen::SymbolTable::InsertLocalVar(const string& name, llvm::Value* value) {
+    insert(name, value);
+}
+
+void LLVMGen::SymbolTable::InsertSelfVar(llvm::Value* value) {
+    insert("self", value);
+}
+
+void LLVMGen::SymbolTable::InsertArg(const string& name, llvm::Value* value) {
+    insert(name, value);
+}
+
+llvm::Value * LLVMGen::SymbolTable::GetLocalVar(const string &name) { return get(name); }
+
+llvm::Value * LLVMGen::SymbolTable::GetSelfVar() { return get("self"); }
+
+llvm::Value * LLVMGen::SymbolTable::GetSelfField(uint32_t i) {
+
+}
+
+llvm::Value * LLVMGen::SymbolTable::GetArg(const string &name) { return get(name); }
+
+/*-------------------------------------*/
+/*          LLVM IR Generator          */
+/*-------------------------------------*/
+LLVMGen::LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& _stable)
+: stable(_stable), llvmStable(_stable) {
+    // initialize fields
     context = make_unique<LLVMContext>();
     builder = make_unique<IRBuilder<>>(*context);
     module = make_unique<Module>("main", *context);
 
+    // initialize llvm
     InitializeNativeTarget();
     InitializeNativeTargetAsmParser();
     InitializeNativeTargetAsmPrinter();
@@ -63,30 +113,55 @@ StructType* LLVMGen::CreateOpaqueStructTypeIfNx(const string &name) {
     return st;
 }
 
+llvm::StructType* LLVMGen::GetStringLLVMType() {
+    return StructType::get(
+        *context,
+        {Type::getInt32Ty(*context),
+         PointerType::get(Type::getInt8Ty(*context), 0)});
+}
+
 Type* LLVMGen::GetLLVMType(const string& name) {
     if (name == "Int") {
         return Type::getInt32Ty(*context);
     } else if (name == "Bool") {
         return Type::getInt1Ty(*context);
+    } else if (name == "String") {
+        return GetStringLLVMType();
     }
     return CreateOpaqueStructTypeIfNx(name);
 }
 
-Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type, vector<shared_ptr<Formal>>& args) {
-    Type* returnType = GetLLVMType(type);
+llvm::Value* LLVMGen::GetStringConstant(const string& str) {
+    vector<Constant*> data;
+    for (auto& c : str) data.emplace_back(ConstantInt::get(Type::getInt8Ty(*context), c));
+    return ConstantArray::get(
+        ArrayType::get(Type::getInt8Ty(*context), str.size()), data);
+}
 
-    vector<Type *> argTypes(args.size());
-    for(auto& arg : args) argTypes.emplace_back(Visit(*arg));
+Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type, const string& selfType,
+    vector<shared_ptr<Formal>>& args) {
 
-    FunctionType* ft = FunctionType::get(returnType, argTypes, false);
+    vector<Type *> argTypes;
+    argTypes.emplace_back(GetLLVMType(selfType));
+    for(auto& arg : args) argTypes.emplace_back(GetLLVMType(arg->type.val));
+
+    FunctionType* ft = FunctionType::get(GetLLVMType(type), argTypes, false);
 
     Function* function = Function::Create(ft, Function::ExternalLinkage, name, module.get());
 
     unsigned idx = 0;
-    for (auto& arg : function->args())
-        arg.setName(args.at(idx++)->name.val);
+    for (auto& arg : function->args()) {
+        if (idx == 0) arg.setName("self");
+        else arg.setName(args.at(idx-1)->name.val);
+        idx++;
+    }
 
     return function;
+}
+
+llvm::Function* LLVMGen::CreateFunctionMain() {
+    FunctionType* ft = FunctionType::get(Type::getVoidTy(*context), {}, false);
+    return Function::Create(ft, Function::ExternalLinkage, "coolmain", module.get());
 }
 
 void LLVMGen::CreateRuntimeFunctionDecls() {
@@ -127,51 +202,93 @@ void LLVMGen::EmitObjectFile(const string &filename) {
 }
 
 Value * LLVMGen::Visit(Program &prog) {
-    CreateRuntimeFunctionDecls();
-    for (auto& cls : prog.GetClasses()) Visit(*cls);
+    ENTER_SCOPE_GUARD(stable, {
+        CreateRuntimeFunctionDecls();
+        for (auto& cls : prog.GetClasses()) Visit(*cls);
+    })
 }
 
 void LLVMGen::Visit(Class &cls) {
-    vector<Type *> Attributes;
-    for (auto& feat : cls.GetFieldFeatures()) Attributes.emplace_back(Visit(*feat));
+    ENTER_SCOPE_GUARD(stable, {
+        vector<Type *> Fields;
+        for (auto& feat : cls.GetFieldFeatures()) Fields.emplace_back(Visit(*feat));
 
-    StructType* ST = CreateOpaqueStructTypeIfNx(cls.name.val);
+        StructType* ST = CreateOpaqueStructTypeIfNx(cls.name.val);
 
-    ST->setBody(Attributes, false);
+        ST->setBody(Fields, false);
 
-    for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
+        for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
+    })
 }
 
 Value * LLVMGen::Visit(FuncFeature &feat) {
-    Function* function = module->getFunction(feat.name.val);
+    Function* function;
+    stable.EnterScope();
+//    ENTER_SCOPE_GUARD(stable, {
 
-    if (!function)
-        function = CreateFunctionDeclIfNx(feat.name.val, feat.type.val, feat.args);
+        if (stable.GetClass()->name.val == "Main" && feat.name.val == "main") {
 
-    if (!function)
-        throw "create llvm function failed";
+            function = CreateFunctionMain();
+            BasicBlock* bb = BasicBlock::Create(*context, "entry", function);
+            builder->SetInsertPoint(bb);
+            if (auto val = Visit(*feat.expr)) {
+                builder->Insert(val);
+                builder->CreateRetVoid();
+                verifyFunction(*function);
+            } else {
+                assert(false);
+            }
 
-    BasicBlock* bb = BasicBlock::Create(*context, "entry", function);
-    builder->SetInsertPoint(bb);
+        } else {
 
-    if (auto ret = ExprVisitor<Value*>::Visit(*feat.expr)) {
-        builder->CreateRet(ret);
+            function = module->getFunction(feat.name.val);
 
-        verifyFunction(*function);
+            if (!function)
+                function = CreateFunctionDeclIfNx(feat.name.val, feat.type.val, stable.GetClass()->name.val, feat.args);
 
-        return function;
-    }
+            if (!function)
+                throw runtime_error("create llvm function failed");
 
-    function->eraseFromParent();
-    return nullptr;
+            BasicBlock* bb = BasicBlock::Create(*context, "entry", function);
+            builder->SetInsertPoint(bb);
+
+            int i = 0;
+            for (auto& arg : function->args()) {
+                if (i == 0) llvmStable.InsertSelfVar(function->args().begin());
+                else llvmStable.InsertArg(arg.getName().str(), &arg);
+                i++;
+            }
+
+            if (auto ret = Visit(*feat.expr)) {
+
+                builder->CreateRet(ret);
+                verifyFunction(*function);
+
+            } else {
+
+                function->eraseFromParent();
+                function = nullptr;
+
+            }
+
+        }
+//    })
+    stable.LeaveScope();
+
+    return function;
 }
 
 Type * LLVMGen::Visit(FieldFeature &feat) {
     return GetLLVMType(feat.type.val);
 }
 
-Type * LLVMGen::Visit(Formal& formal) {
-    return GetLLVMType(formal.type.val);
+Value * LLVMGen::Visit(Formal& formal) {
+    // todo
+    return nullptr;     //    return builder->CreateAlloca(GetLLVMType(formal.type.val), nullptr, formal.name.val);
+}
+
+Value* LLVMGen::Visit(repr::Expr& expr) {
+    return ExprVisitor<Value *>::Visit(expr);
 }
 
 Value* LLVMGen::Visit_(repr::LinkBuiltin& expr) {
@@ -179,97 +296,140 @@ Value* LLVMGen::Visit_(repr::LinkBuiltin& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::Assign& expr) {
-    return nullptr;
+    builder->CreateStore(Visit(*expr.expr), Visit(*expr.id));
+    return Visit(*expr.id);
 }
 
 Value* LLVMGen::Visit_(repr::Add& expr) {
-    return nullptr;
+    return builder->CreateAdd(Visit(*expr.left),Visit(*expr.right));
 }
 
 Value* LLVMGen::Visit_(repr::Block& expr) {
-    return nullptr;
+    Value* value;
+    ENTER_SCOPE_GUARD(stable, {
+        for (auto& eExpr : expr.exprs)
+            value = Visit(*eExpr);
+    })
+    return value;
 }
 
 Value* LLVMGen::Visit_(repr::Case& expr) {
+    // todo
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::Call& expr) {
-    return nullptr;
+    Function* function = CreateFunctionDeclIfNx(expr.link->name.val, expr.link->type.val,
+        stable.GetClass()->name.val, expr.link->args);
+    vector<Value*> args;
+    for (auto& arg : expr.args) args.emplace_back(Visit(*arg));
+    return builder->CreateCall(function->getFunctionType(), function, args);
 }
 
 Value* LLVMGen::Visit_(repr::Divide& expr) {
-    return nullptr;
+    return builder->CreateSDiv(Visit(*expr.left), Visit(*expr.right));
 }
 
 Value* LLVMGen::Visit_(repr::Equal& expr) {
+    // todo
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::False& expr) {
-    return nullptr;
+    return ConstantInt::getFalse(*context);
 }
 
 Value* LLVMGen::Visit_(repr::ID& expr) {
-    return nullptr;
+    auto idAttr = stable.GetIdAttr(expr.name.val);
+    switch (idAttr->storageClass) {
+        case attr::IdAttr::Field:
+            return builder->CreateLoad(llvmStable.GetSelfField(idAttr->idx));
+        case attr::IdAttr::Local:
+            return builder->CreateLoad(llvmStable.GetLocalVar(idAttr->name));
+        case attr::IdAttr::Arg:
+            // todo: how to get arg?
+            break;
+        default:
+            assert(false && "Invalid IdAttr:StorageClass Enum");
+    }
 }
 
 Value* LLVMGen::Visit_(repr::IsVoid& expr) {
+    // todo
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::Integer& expr) {
-    return nullptr;
+    return ConstantInt::getIntegerValue(
+        Type::getInt32Ty(*context),
+        APInt(64, expr.val.val, true));
 }
 
 Value* LLVMGen::Visit_(repr::If& expr) {
+    // todo
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::LessThanOrEqual& expr) {
-    return nullptr;
+    return builder->CreateICmp(CmpInst::ICMP_SLE, Visit(*expr.left), Visit(*expr.right));
 }
 
 Value* LLVMGen::Visit_(repr::LessThan& expr) {
-    return nullptr;
+    return builder->CreateICmp(CmpInst::ICMP_SLT, Visit(*expr.left), Visit(*expr.right));
 }
 
 Value* LLVMGen::Visit_(repr::Let& expr) {
-    return nullptr;
+    auto visitFormal = [&](repr::Let::Formal& formal) {
+        auto alloca = builder->CreateAlloca(GetLLVMType(formal.type.val), nullptr, formal.name.val);
+        if (formal.expr) builder->CreateStore(Visit(*formal.expr), alloca);
+        return alloca;
+    };
+    Value* value;
+    for (auto it = expr.formals.begin(); it != expr.formals.end(); it++) {
+        ENTER_SCOPE_GUARD(stable, {
+            llvmStable.InsertLocalVar((*it)->name.val, visitFormal(**it));
+            if (it+1 == expr.formals.end())
+                value = Visit(*expr.expr);
+        })
+    }
+    return value;
 }
 
 Value* LLVMGen::Visit_(repr::MethodCall& expr) {
+    // todo
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::Multiply& expr) {
-    return nullptr;
+    return builder->CreateMul(Visit(*expr.left),Visit(*expr.right));
 }
 
 Value* LLVMGen::Visit_(repr::Minus& expr) {
-    return nullptr;
+    return builder->CreateSub(Visit(*expr.left),Visit(*expr.right));
 }
 
 Value* LLVMGen::Visit_(repr::Negate& expr) {
-    return nullptr;
+    return builder->CreateNeg(Visit(*expr.expr));
 }
 
 Value* LLVMGen::Visit_(repr::New& expr) {
+    // todo
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::Not& expr) {
-    return nullptr;
+    return builder->CreateNot(Visit(*expr.expr));
 }
 
 Value* LLVMGen::Visit_(repr::String& expr) {
-    return nullptr;
+    return GetStringConstant(expr.val.val);
 }
 
 Value* LLVMGen::Visit_(repr::True& expr) {
-    return nullptr;
+    return ConstantInt::getTrue(*context);
 }
 
 Value* LLVMGen::Visit_(repr::While& expr) {
+    // todo
     return nullptr;
 }

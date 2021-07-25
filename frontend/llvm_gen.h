@@ -22,6 +22,7 @@
 
 #include "visitor.h"
 #include "repr.h"
+#include "stable.h"
 
 namespace cool {
 
@@ -32,12 +33,36 @@ using namespace repr;
 namespace irgen {
 
 class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFeatureVisitor<llvm::Value*>,
-    FieldFeatureVisitor<llvm::Type*>, FormalVisitor<llvm::Type*>, ExprVisitor<llvm::Value*> {
+    FieldFeatureVisitor<llvm::Type*>, FormalVisitor<llvm::Value*>, ExprVisitor<llvm::Value*> {
   private:
     std::unique_ptr<llvm::LLVMContext> context;
     std::unique_ptr<llvm::IRBuilder<>> builder;
     std::unique_ptr<llvm::Module> module;
     std::unique_ptr<llvm::TargetMachine> target;
+    adt::ScopedTableSpecializer<adt::SymbolTable>& stable;
+
+    class SymbolTable {
+      private:
+        adt::ScopedTableSpecializer<adt::SymbolTable>& stable;
+        unordered_map<uint32_t, unordered_map<string, llvm::Value*>> valueTable;
+
+        llvm::Value* get(const string& name);
+        void insert(const string& name, llvm::Value* value);
+
+    public:
+        SymbolTable(adt::ScopedTableSpecializer<adt::SymbolTable>& _stable);
+
+        void InsertLocalVar(const string& name, llvm::Value* value);
+        void InsertSelfVar(llvm::Value* value);
+        void InsertArg(const string& name, llvm::Value* value);
+
+        llvm::Value* GetLocalVar(const string& name);
+        llvm::Value* GetSelfVar();
+        llvm::Value* GetSelfField(uint32_t i);
+        llvm::Value* GetArg(const string& name);
+    };
+
+    SymbolTable llvmStable;
 
     // get the opaque StructType if existed, otherwise create one
     llvm::StructType* CreateOpaqueStructTypeIfNx(const string& name);
@@ -47,15 +72,20 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     // Bool -> int1
     // Others -> struct type
     // this will create an opaque struct type if not existed
+    llvm::StructType* GetStringLLVMType();
     llvm::Type* GetLLVMType(const string& type);
 
-    // get the Function if existed, otherwise create one
-    llvm::Function* CreateFunctionDeclIfNx(const string& name, const string& type, vector<shared_ptr<Formal>>& args);
+    llvm::Value* GetStringConstant(const string& str);
 
+    // get the Function if existed, otherwise create one
+    llvm::Function* CreateFunctionDeclIfNx(const string& name, const string& type,
+        const string& selfType, vector<shared_ptr<Formal>>& args);
+
+    llvm::Function* CreateFunctionMain();
     void CreateRuntimeFunctionDecls();
 
 public:
-    LLVMGen();
+    LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& stable);
     LLVMGen(const LLVMGen& llvmGen) = delete;
     LLVMGen(const LLVMGen&& llvmGen) = delete;
 
@@ -66,8 +96,9 @@ public:
     void Visit(Class& cls);
     llvm::Value* Visit(FuncFeature& feat);
     llvm::Type* Visit(FieldFeature& feat);
-    llvm::Type* Visit(Formal& formal);
+    llvm::Value* Visit(Formal& formal);
 
+    llvm::Value* Visit(repr::Expr& expr);
     llvm::Value* Visit_(repr::LinkBuiltin& expr);
     llvm::Value* Visit_(repr::Assign& expr);
     llvm::Value* Visit_(repr::Add& expr);

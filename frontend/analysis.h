@@ -18,6 +18,7 @@ namespace ana {
 // I use finer-grained passes and group related passes into containers, e.g Sequential,
 // to get the benefits of both.
 
+// todo: check Main class, main function
 class InstallBuiltin : public pass::ProgramPass {
   public:
     repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;

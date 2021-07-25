@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <fstream>
 
 #include "frontend/diag.h"
 #include "frontend/tokenizer.h"
@@ -11,6 +12,7 @@
 #include "frontend/pass.h"
 #include "frontend/analysis.h"
 #include "frontend/llvm_gen.h"
+#include "frontend/stable.h"
 
 using namespace std;
 using namespace cool;
@@ -20,18 +22,22 @@ using namespace parser;
 using namespace pass;
 using namespace ana;
 using namespace irgen;
+using namespace adt;
 
 int main() {
+    fstream file;
+    file.open("../main_data", ios::in);
+    assert(file);
+
     Diagnosis diagnosis;
-    stringstream sstream("class A {};");
     Tokenizer tokenizer(diagnosis);
-    Parser parser(diagnosis, tokenizer.Tokenize("test", sstream));
+    Parser parser(diagnosis, tokenizer.Tokenize("test", file));
     auto prog = parser.ParseProgram();
     PassContext passContext(diagnosis);
     PassManager::Refresh();
     PassManager::Register<SemanticChecking>();
     PassManager::Run(prog, passContext);
-    LLVMGen llvmGen;
+    LLVMGen llvmGen(*passContext.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table"));
     llvmGen.Visit(prog);
     llvmGen.DumpTextualIR("output.ll");
     llvmGen.EmitObjectFile("output.o");

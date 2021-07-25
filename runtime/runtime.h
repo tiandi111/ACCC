@@ -7,6 +7,8 @@
 
 #include "stddef.h"
 
+void coolmain();
+
 // program entry point
 void start();
 

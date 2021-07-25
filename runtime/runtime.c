@@ -9,6 +9,7 @@
 
 void start() {
     printf("hello cool!");
+    coolmain();
 }
 
 void* mallocool(size_t size) {

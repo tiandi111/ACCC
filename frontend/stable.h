@@ -17,15 +17,19 @@
 using namespace std;
 using namespace cool;
 
-#define NEW_SCOPE_GUARD(scope, stmt, ...)\
-    scope.NewScope(__VA_ARGS__);\
-    stmt;\
-    scope.FinishScope();
+namespace cool {
 
-#define ENTER_SCOPE_GUARD(scope, stmt)\
-    scope.EnterScope();\
+namespace adt {
+
+#define NEW_SCOPE_GUARD(stable, stmt, ...)\
+    stable.NewScope(__VA_ARGS__);\
     stmt;\
-    scope.LeaveScope();
+    stable.FinishScope();
+
+#define ENTER_SCOPE_GUARD(stable, stmt)\
+    stable.EnterScope();\
+    stmt;\
+    stable.LeaveScope();
 
 template<typename T>
 class ScopedTable {
@@ -41,6 +45,14 @@ class ScopedTable {
     void InitTraverse() {
         stack.clear();
         next = 0;
+    }
+
+    int Size() { return val.size(); }
+
+    int Idx() {
+        if (stack.empty())
+            throw runtime_error("uninitialized ScopedTable, call InitTraverse() first");
+        return stack.back();
     }
 
     void NewScope() {
@@ -73,7 +85,7 @@ class ScopedTable {
         if (stack.empty()) {
             throw runtime_error("no scope to return, call NewScope or EnterScope first");
         }
-        return val.at(stack.back());
+        return val.at(Idx());
     }
 };
 
@@ -81,16 +93,15 @@ class SymbolTable {
   private:
     using IdAttrMap = unordered_map<string, shared_ptr<attr::IdAttr>>;
 
+    uint32_t idx;
     unordered_map<string, shared_ptr<attr::IdAttr>> ids;
     shared_ptr<repr::Class> cls;
 
   public:
-
     SymbolTable() = default;
 
-    SymbolTable(shared_ptr<repr::Class> _cls) {
-        cls = move(_cls);
-    }
+    SymbolTable(uint32_t _idx, shared_ptr<repr::Class> _cls)
+        : idx(_idx), cls(_cls) {}
 
     bool ContainsId(const string& name) {
         return ids.find(name) != ids.end();
@@ -119,10 +130,10 @@ class ScopedTableSpecializer : ScopedTable<T> {};
 
 template<>
 class ScopedTableSpecializer<SymbolTable> : public ScopedTable<SymbolTable> {
-  public:
+public:
     void NewScope(shared_ptr<repr::Class> cls) {
+        val.emplace_back(SymbolTable(next, move(cls)));
         stack.push_back(next++);
-        val.emplace_back(SymbolTable(move(cls)));
     }
 
     shared_ptr<attr::IdAttr> GetIdAttr(const string& name) {
@@ -143,5 +154,8 @@ class ScopedTableSpecializer<SymbolTable> : public ScopedTable<SymbolTable> {
 
 };
 
+} // namespace adt
+
+} // namespace cool
 
 #endif //COOL_STABLE_H

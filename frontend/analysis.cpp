@@ -21,6 +21,7 @@
 using namespace std;
 using namespace cool;
 using namespace visitor;
+using namespace adt;
 
 repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassContext& ctx) {
 
@@ -162,6 +163,7 @@ repr::Class ana::AddInheritedMethods::operator()(repr::Class& cls, pass::PassCon
     return cls;
 }
 
+// todo: Init IdAttr's storageClass & idx
 repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassContext& ctx) {
     using namespace visitor;
 

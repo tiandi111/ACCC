@@ -25,8 +25,18 @@ struct FuncAttr {
 };
 
 struct IdAttr {
+    enum StorageClass {
+        Field,
+        Local,
+        Arg,
+    };
+    StorageClass storageClass;
+    uint32_t idx;
     string name;
     string type;
+
+    IdAttr(const string& _name, const string& _type)
+    : name(_name), type(_type) {}
 };
 
 struct TypeAttr {
