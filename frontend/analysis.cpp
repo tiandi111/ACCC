@@ -2,7 +2,6 @@
 // Created by 田地 on 2021/6/14.
 //
 
-#include <algorithm>
 #include <string>
 #include <unordered_set>
 #include <unordered_map>
@@ -12,7 +11,7 @@
 #include "analysis.h"
 #include "builtin.h"
 #include "pass.h"
-#include "stable.h"
+#include "adt.h"
 #include "visitor.h"
 #include "typead.h"
 #include "repr.h"
@@ -25,7 +24,7 @@ using namespace adt;
 
 repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassContext& ctx) {
 
-    for (auto& cls : builtin::BuiltinClasses) {
+    for (auto& cls : builtin::GetBuiltinClasses()) {
         if (!prog.AddClass(cls)) {
             ctx.diag.EmitError(prog.GetClassPtr(cls.name.val)->GetTextInfo(),
                 "built-in class '" + cls.name.val + "' cannot be redefined");
@@ -41,8 +40,7 @@ repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassCon
 
 repr::Class ana::CheckBuiltinInheritance::operator()(repr::Class& cls, pass::PassContext& ctx) {
     using namespace builtin;
-    if (BuiltinClassSet.find(cls.parent.val) != BuiltinClassSet.end() &&
-        InheritableBuiltInClasses.find(cls.parent.val) == InheritableBuiltInClasses.end()) {
+    if (IsBuiltinClass(cls.parent.val) && !IsInheritable(cls.parent.val)) {
         ctx.diag.EmitError(cls.parent.textInfo, "cannot inherit built-in class '" + cls.parent.val + "'");
         cls.parent.val = "Object";
     }
@@ -163,14 +161,18 @@ repr::Class ana::AddInheritedMethods::operator()(repr::Class& cls, pass::PassCon
     return cls;
 }
 
-// todo: Init IdAttr's storageClass & idx
 repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassContext& ctx) {
     using namespace visitor;
+    using namespace attr;
 
     class Visitor : public ProgramVisitor<void>, ClassVisitor<void>, FuncFeatureVisitor<void>,
-        FieldFeatureVisitor<void>, FormalVisitor<void>, ExprVisitor<void> {
+        FieldFeatureVisitor<void, int>, FormalVisitor<void, int>, ExprVisitor<void> {
       public:
         ScopedTableSpecializer<SymbolTable> stable;
+
+        Visitor() {
+            stable.InitTraverse();
+        }
 
         void Visit(repr::Program &prog) {
             NEW_SCOPE_GUARD(stable, {
@@ -181,24 +183,26 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
         void Visit(shared_ptr<repr::Class> cls) {
             NEW_SCOPE_GUARD(stable, {
                 for (auto &feat : cls->GetFuncFeatures()) Visit(*feat);
-                for (auto &feat : cls->GetFieldFeatures()) Visit(*feat);
+                for (int i = 0; i < cls->GetFieldFeatures().size(); i++)
+                    Visit(*cls->GetFieldFeatures().at(i), i);
             }, cls)
         }
 
         void Visit(repr::FuncFeature &feat) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &arg : feat.args) Visit(*arg);
+                for (int i = 0; i < feat.args.size(); i++)
+                    Visit(*feat.args.at(i), i);
                 ExprVisitor::Visit(*feat.expr);
             }, stable.GetClass())
         }
 
-        void Visit(repr::FieldFeature &feat) {
-            stable.Current().Insert(attr::IdAttr{feat.name.val, feat.type.val});
+        void Visit(repr::FieldFeature &feat, int idx) {
+            stable.Current().Insert(IdAttr{IdAttr::Field, idx, feat.name.val, feat.type.val});
             if (feat.expr) ExprVisitor::Visit(*feat.expr);
         }
 
-        void Visit(repr::Formal &form) {
-            stable.Current().Insert(attr::IdAttr{form.name.val, form.type.val});
+        void Visit(repr::Formal &form, int idx) {
+            stable.Current().Insert(IdAttr{IdAttr::Arg, idx, form.name.val, form.type.val});
         }
 
         void Visit_(repr::LinkBuiltin& expr) {}
@@ -217,16 +221,23 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
             ExprVisitor::Visit(*expr.expr);
             for (auto& branch : expr.branches) {
                 NEW_SCOPE_GUARD(stable, {
-                    stable.Current().Insert(attr::IdAttr{branch->id.val, branch->type.val});
+                    stable.Current().Insert(IdAttr{IdAttr::Local, stable.Current().NextLocalIdIdx(),
+                                                   branch->id.val, branch->type.val});
                     ExprVisitor::Visit(*branch->expr);
                 }, stable.GetClass())
             }
         }
 
+        // this function does not take care of scope
+        void VisitCall(repr::Call& expr) {
+            Visit_(*expr.id);
+            for (auto &arg : expr.args)
+                ExprVisitor::Visit(*arg);
+        }
+
         void Visit_(repr::Call& expr) {
             NEW_SCOPE_GUARD(stable, {
-                Visit_(*expr.id);
-                for (auto &arg : expr.args) { ExprVisitor::Visit(*arg); }
+                 VisitCall(expr);
             }, stable.GetClass())
         }
 
@@ -255,7 +266,8 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
             for (int i = 0; i < expr.formals.size(); i++) {
                 stable.NewScope(stable.GetClass());
                 auto& form = expr.formals.at(i);
-                stable.Current().Insert(attr::IdAttr{form->name.val, form->type.val});
+                stable.Current().Insert(IdAttr{IdAttr::Local, stable.Current().NextLocalIdIdx(),
+                                               form->name.val, form->type.val});
                 if (form->expr) ExprVisitor::Visit(*form->expr);
             }
             ExprVisitor::Visit(*expr.expr);
@@ -265,7 +277,7 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
         void Visit_(repr::MethodCall& expr) {
             NEW_SCOPE_GUARD(stable, {
                 ExprVisitor::Visit(*expr.left);
-                ExprVisitor::Visit(*expr.right);
+                VisitCall(*static_pointer_cast<repr::Call>(expr.right));
             }, stable.GetClass())
         }
 
@@ -417,7 +429,8 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
             TypeName rType;
             ENTER_SCOPE_GUARD(stable,
                 auto callExpr = static_pointer_cast<repr::Call>(expr.right);
-                auto funcPtr = CheckCall(ExprVisitor<TypeName>::Visit(*expr.left), *callExpr);
+                expr.type = ExprVisitor<TypeName>::Visit(*expr.left);
+                auto funcPtr = CheckCall(expr.type, *callExpr);
                 if (funcPtr) {
                     callExpr->link = funcPtr;
                     rType = funcPtr->type.val;
@@ -433,7 +446,7 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
             }
             auto funcPtr = cls->GetFuncFeaturePtr(expr.id->name.val);
             if (!funcPtr) {
-                ctx.diag.EmitError(expr.GetTextInfo(), "method '" + expr.id->name.val + "'  found");
+                ctx.diag.EmitError(expr.GetTextInfo(), "method '" + expr.id->name.val + "' not found");
                 return nullptr;
             }
             if (expr.args.size() != funcPtr->args.size()) {
@@ -483,7 +496,10 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
             return idAttr->type;
         }
 
-        TypeName Visit_(repr::IsVoid& expr) { return "Bool"; }
+        TypeName Visit_(repr::IsVoid& expr) {
+            ExprVisitor<TypeName>::Visit(*expr.expr);
+            return "Bool";
+        }
 
         TypeName Visit_(repr::Integer& expr) { return "Int"; }
 
@@ -577,6 +593,171 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
     auto typeAdvisor = ctx.Get<type::TypeAdvisor>("type_advisor");
 
     Visitor vis(ctx, *stable, *typeAdvisor);
+    vis.Visit(prog);
+    return prog;
+}
+
+repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::PassContext& ctx) {
+
+    class Visitor : public ProgramVisitor<void>, ClassVisitor<void>, FuncFeatureVisitor<void>,
+        FieldFeatureVisitor<void>, FormalVisitor<void>, ExprVisitor<void> {
+      private:
+        ScopedTableSpecializer<SymbolTable>& stable;
+
+      public:
+        Visitor(ScopedTableSpecializer<SymbolTable>& _stable) : stable(_stable) {
+            stable.InitTraverse();
+        }
+
+        void Visit(repr::Program &prog) {
+            ENTER_SCOPE_GUARD(stable,for (auto& cls : prog.GetClasses()) Visit(*cls);)
+        }
+
+        void Visit(repr::Class &cls) {
+            ENTER_SCOPE_GUARD(stable, {
+                auto& p = cls.parent;
+                for (auto& feat : cls.GetFieldFeatures()) Visit(*feat);
+                for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
+            })
+        }
+
+        void Visit(repr::FieldFeature &feat) {
+            if (feat.type.val == "SELF_TYPE")
+                feat.type.val = stable.GetClass()->name.val;
+            if (feat.expr)
+                Visit(*feat.expr);
+        }
+
+        void Visit(repr::FuncFeature &feat) {
+            ENTER_SCOPE_GUARD(stable, {
+                if (feat.type.val == "SELF_TYPE")
+                    feat.type.val = stable.GetClass()->name.val;
+                Visit(*feat.expr);
+            })
+        }
+
+        void Visit(repr::Formal &form) {}
+
+        void Visit(repr::Expr& expr) { ExprVisitor<void>::Visit(expr); }
+
+        void Visit_(repr::LinkBuiltin& expr) {
+            if (expr.type == "SELF_TYPE")
+                expr.type = stable.GetClass()->name.val;
+        }
+
+        void Visit_(repr::Assign& expr) { Visit(*expr.expr); }
+
+        void Visit_(repr::Add& expr) {
+            Visit(*expr.left);
+            Visit(*expr.left);
+        }
+
+        void Visit_(repr::Block& expr) {
+            ENTER_SCOPE_GUARD(stable, {
+                for (int i = 0; i < expr.exprs.size() - 1; i++) Visit(*expr.exprs.at(i));
+            })
+        }
+
+        void Visit_(repr::Case& expr) {
+            Visit(*expr.expr);
+            for (auto& branch : expr.branches) {
+                ENTER_SCOPE_GUARD(stable, Visit(*branch->expr);)
+            }
+        }
+
+        void VisitCall(repr::Call& expr) {
+            for (auto& arg : expr.args) Visit(*arg);
+        }
+
+        void Visit_(repr::Call& expr) {
+            ENTER_SCOPE_GUARD(stable,VisitCall(expr))
+        }
+
+        void Visit_(repr::MethodCall& expr) {
+            ENTER_SCOPE_GUARD(stable, {
+                Visit(*expr.left);
+                VisitCall(*static_pointer_cast<repr::Call>(expr.right));
+            })
+        }
+
+        void Visit_(repr::Divide& expr) {
+            Visit(*expr.left);
+            Visit(*expr.right);
+        }
+
+        void Visit_(repr::Equal& expr) {
+            Visit(*expr.left);
+            Visit(*expr.right);
+        }
+
+        void Visit_(repr::False& expr) {}
+
+        void Visit_(repr::ID& expr) {}
+
+        void Visit_(repr::IsVoid& expr) { Visit(*expr.expr); }
+
+        void Visit_(repr::Integer& expr) {}
+
+        void Visit_(repr::If& expr) {
+            Visit(*expr.ifExpr);
+            Visit(*expr.thenExpr);
+            Visit(*expr.elseExpr);
+        }
+
+        void Visit_(repr::LessThanOrEqual& expr) {
+            Visit(*expr.left);
+            Visit(*expr.right);
+        }
+
+        void Visit_(repr::LessThan& expr) {
+            Visit(*expr.left);
+            Visit(*expr.right);
+        }
+
+        void Visit_(repr::Let& expr) {
+            for (int i = 0; i < expr.formals.size(); i++) {
+                stable.EnterScope();
+                Visit(*expr.formals.at(i)->expr);
+            }
+            Visit(*expr.expr);
+            for (int i = 0; i < expr.formals.size(); i++) stable.LeaveScope();
+        }
+
+        void Visit_(repr::Multiply& expr) {
+            Visit(*expr.left);
+            Visit(*expr.right);
+        }
+
+        void Visit_(repr::Minus& expr) {
+            Visit(*expr.left);
+            Visit(*expr.right);
+        }
+
+        void Visit_(repr::Negate& expr) {
+            Visit(*expr.expr);
+        }
+
+        void Visit_(repr::New& expr) {
+            if (expr.type.val == "SELF_TYPE")
+                expr.type.val = stable.GetClass()->name.val;
+        }
+
+        void Visit_(repr::Not& expr) { Visit(*expr.expr); }
+
+        void Visit_(repr::String& expr) {}
+
+        void Visit_(repr::True& expr) {}
+
+        void Visit_(repr::While& expr) {
+            ENTER_SCOPE_GUARD(stable, {
+                Visit(*expr.whileExpr);
+                Visit(*expr.loopExpr);
+            })
+        }
+    };
+
+    auto stable = ctx.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table");
+    Visitor vis(*stable);
     vis.Visit(prog);
     return prog;
 }

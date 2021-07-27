@@ -19,6 +19,8 @@ namespace ana {
 // to get the benefits of both.
 
 // todo: check Main class, main function
+// todo: replace SELF_TYPE with real type？
+
 class InstallBuiltin : public pass::ProgramPass {
   public:
     repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
@@ -64,6 +66,11 @@ class TypeChecking : public pass::ProgramPass {
     repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
 };
 
+class EliminateSelfType : public pass::ProgramPass {
+  public:
+    repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+};
+
 class SemanticChecking : public pass::Sequential {
   public:
     SemanticChecking() : pass::Sequential({
@@ -75,7 +82,8 @@ class SemanticChecking : public pass::Sequential {
         make_shared<CheckInheritedMethods>(),
         make_shared<AddInheritedMethods>(),
         make_shared<InitSymbolTable>(),
-        make_shared<TypeChecking>()
+        make_shared<TypeChecking>(),
+        make_shared<EliminateSelfType>()
     }) {}
 };
 

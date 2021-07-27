@@ -17,29 +17,32 @@ namespace cool {
 
 namespace builtin {
 
-extern repr::FuncFeature Abort;
-extern repr::FuncFeature TypeName;
-extern repr::FuncFeature Copy;
-extern repr::Class Object;
+repr::FuncFeature GetAbortFuncFeature();
+repr::FuncFeature GetTypeNameFuncFeature();
+repr::FuncFeature GetCopyFuncFeature();
+repr::Class GetObjectClass();
 
-extern repr::FuncFeature OutString;
-extern repr::FuncFeature OutInt;
-extern repr::FuncFeature InString;
-extern repr::FuncFeature InInt;
-extern repr::Class IO;
+repr::FuncFeature GetOutStringFuncFeature();
+repr::FuncFeature GetOutIntFuncFeature();
+repr::FuncFeature GetInStringFuncFeature();
+repr::FuncFeature GetInIntFuncFeature();
+repr::Class GetIOClass();
 
-extern repr::Class Int;
+repr::Class GetIntClass();
 
-extern repr::FuncFeature Length;
-extern repr::FuncFeature Concat;
-extern repr::FuncFeature Substr;
-extern repr::Class String;
+repr::FuncFeature GetLengthFuncFeature();
+repr::FuncFeature GetConcatFuncFeature();
+repr::FuncFeature GetSubstrFuncFeature();
+repr::Class GetStringClass();
 
-extern repr::Class Bool;
+repr::Class GetBoolClass();
 
-extern unordered_set<string> BuiltinClassSet;
-extern unordered_set<string> InheritableBuiltInClasses;
-extern vector<repr::Class> BuiltinClasses;
+unordered_set<string> GetBuiltinClassNames();
+unordered_set<string> GetInheritableBuiltInClasseNames();
+vector<repr::Class> GetBuiltinClasses();
+
+bool IsBuiltinClass(const string& name);
+bool IsInheritable(const string& name);
 
 } // builtin
 

@@ -19,10 +19,11 @@
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/Support/raw_os_ostream.h"
 
 #include "visitor.h"
 #include "repr.h"
-#include "stable.h"
+#include "adt.h"
 
 namespace cool {
 
@@ -33,13 +34,14 @@ using namespace repr;
 namespace irgen {
 
 class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFeatureVisitor<llvm::Value*>,
-    FieldFeatureVisitor<llvm::Type*>, FormalVisitor<llvm::Value*>, ExprVisitor<llvm::Value*> {
+    FieldFeatureVisitor<llvm::Type*>, FormalVisitor<llvm::Type*>, ExprVisitor<llvm::Value*> {
   private:
     std::unique_ptr<llvm::LLVMContext> context;
     std::unique_ptr<llvm::IRBuilder<>> builder;
     std::unique_ptr<llvm::Module> module;
     std::unique_ptr<llvm::TargetMachine> target;
     adt::ScopedTableSpecializer<adt::SymbolTable>& stable;
+    llvm::raw_os_ostream os; // todo: use diag
 
     class SymbolTable {
       private:
@@ -64,25 +66,40 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
 
     SymbolTable llvmStable;
 
+    llvm::ConstantInt* ConstInt8(uint8_t v);
+    llvm::ConstantInt* ConstInt32(uint32_t v);
+    llvm::ConstantInt* ConstInt64(uint64_t v);
+    vector<llvm::Value*> ConstInt32s(vector<uint32_t> v);
+
     // get the opaque StructType if existed, otherwise create one
     llvm::StructType* CreateOpaqueStructTypeIfNx(const string& name);
+
+    llvm::PointerType* CreateStructPointerTypeIfNx(const string& name);
 
     // get the corresponding llvm type
     // Int -> int32
     // Bool -> int1
     // Others -> struct type
     // this will create an opaque struct type if not existed
-    llvm::StructType* GetStringLLVMType();
+    llvm::PointerType* GetStringLLVMType();
+    llvm::AllocaInst* AllocLLVMConstStringStruct(const string& str);
     llvm::Type* GetLLVMType(const string& type);
+    bool IsMappedToLLVMStructPointerType(const string& type);
+    bool IsStringLLVMType(llvm::Value* v);
 
-    llvm::Value* GetStringConstant(const string& str);
-
+    // C is the class name
+    string FunctionName(const string& name, const string& C);
     // get the Function if existed, otherwise create one
     llvm::Function* CreateFunctionDeclIfNx(const string& name, const string& type,
         const string& selfType, vector<shared_ptr<Formal>>& args);
 
     llvm::Function* CreateFunctionMain();
     void CreateRuntimeFunctionDecls();
+
+    // constructor
+    llvm::Value* DefaultNewOperator(const string& type);
+    llvm::Function* CreateNewOperatorDeclIfNx(const string& type);
+    llvm::Function* CreateNewOperatorBody(Class& cls);
 
 public:
     LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& stable);
@@ -92,12 +109,13 @@ public:
     void DumpTextualIR(const string& filename);
     void EmitObjectFile(const string& filename);
 
+    llvm::Value* genCall(const string& selfType, llvm::Value* self, repr::Call& call);
+
     llvm::Value* Visit(Program& prog);
     void Visit(Class& cls);
     llvm::Value* Visit(FuncFeature& feat);
-    llvm::Type* Visit(FieldFeature& feat);
-    llvm::Value* Visit(Formal& formal);
-
+    llvm::Type*  Visit(FieldFeature& feat);
+    llvm::Type* Visit(Formal& formal);
     llvm::Value* Visit(repr::Expr& expr);
     llvm::Value* Visit_(repr::LinkBuiltin& expr);
     llvm::Value* Visit_(repr::Assign& expr);

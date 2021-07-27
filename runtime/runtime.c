@@ -12,7 +12,7 @@ void start() {
     coolmain();
 }
 
-void* mallocool(size_t size) {
+void* mallocool(uint64_t size) {
     return malloc(size);
 }
 

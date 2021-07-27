@@ -12,7 +12,7 @@
 #include "frontend/pass.h"
 #include "frontend/analysis.h"
 #include "frontend/llvm_gen.h"
-#include "frontend/stable.h"
+#include "frontend/adt.h"
 
 using namespace std;
 using namespace cool;
@@ -33,14 +33,22 @@ int main() {
     Tokenizer tokenizer(diagnosis);
     Parser parser(diagnosis, tokenizer.Tokenize("test", file));
     auto prog = parser.ParseProgram();
+    if (!diagnosis.Empty()) {
+        diagnosis.Output(cerr);
+        return 0;
+    }
     PassContext passContext(diagnosis);
     PassManager::Refresh();
     PassManager::Register<SemanticChecking>();
     PassManager::Run(prog, passContext);
+    if (!diagnosis.Empty()) {
+        diagnosis.Output(cerr);
+        return 0;
+    }
     LLVMGen llvmGen(*passContext.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table"));
     llvmGen.Visit(prog);
     llvmGen.DumpTextualIR("output.ll");
-    llvmGen.EmitObjectFile("output.o");
+//    llvmGen.EmitObjectFile("output.o");
     diagnosis.Output(cerr);
 }
 

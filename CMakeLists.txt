@@ -19,7 +19,7 @@ add_executable(cool
         frontend/pass.h frontend/pass.cpp
         frontend/tokenizer.h frontend/tokenizer.cpp
         frontend/analysis.h frontend/analysis.cpp
-        frontend/stable.h
+        frontend/adt.h
         frontend/attrs.h
         frontend/visitor.h
         frontend/vtable.h
@@ -47,7 +47,7 @@ add_executable(utest
         frontend/pass.h frontend/pass.cpp
         frontend/tokenizer.h frontend/tokenizer.cpp
         frontend/analysis.h frontend/analysis.cpp
-        frontend/stable.h
+        frontend/adt.h
         frontend/attrs.h
         frontend/visitor.h
         frontend/vtable.h
@@ -75,7 +75,7 @@ add_executable(itest
         frontend/pass.h frontend/pass.cpp
         frontend/tokenizer.h frontend/tokenizer.cpp
         frontend/analysis.h frontend/analysis.cpp
-        frontend/stable.h
+        frontend/adt.h
         frontend/attrs.h
         frontend/visitor.h
         frontend/vtable.h

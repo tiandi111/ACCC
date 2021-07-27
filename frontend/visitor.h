@@ -8,7 +8,7 @@
 #include <iostream>
 
 #include "repr.h"
-#include "stable.h"
+#include "adt.h"
 #include "vtable.h"
 
 using namespace std;

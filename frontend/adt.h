@@ -2,8 +2,8 @@
 // Created by 田地 on 2021/6/17.
 //
 
-#ifndef COOL_STABLE_H
-#define COOL_STABLE_H
+#ifndef COOL_ADT_H
+#define COOL_ADT_H
 
 #include <utility>
 #include <vector>
@@ -55,6 +55,8 @@ class ScopedTable {
         return stack.back();
     }
 
+    vector<int>& Stack() { return stack; }
+
     void NewScope() {
         stack.push_back(next++);
         val.emplace_back(T());
@@ -93,7 +95,8 @@ class SymbolTable {
   private:
     using IdAttrMap = unordered_map<string, shared_ptr<attr::IdAttr>>;
 
-    uint32_t idx;
+    int idx;
+    int numLocalId;
     unordered_map<string, shared_ptr<attr::IdAttr>> ids;
     shared_ptr<repr::Class> cls;
 
@@ -102,6 +105,10 @@ class SymbolTable {
 
     SymbolTable(uint32_t _idx, shared_ptr<repr::Class> _cls)
         : idx(_idx), cls(_cls) {}
+
+    int NumLocalId() { return numLocalId; }
+
+    int NextLocalIdIdx() { return numLocalId; }
 
     bool ContainsId(const string& name) {
         return ids.find(name) != ids.end();
@@ -117,6 +124,7 @@ class SymbolTable {
     }
 
     void Insert(attr::IdAttr attr) {
+        if (attr.storageClass == attr::IdAttr::Local) numLocalId++;
         ids.insert({attr.name, make_shared<attr::IdAttr>(attr)});
     }
 
@@ -158,4 +166,4 @@ public:
 
 } // namespace cool
 
-#endif //COOL_STABLE_H
+#endif //COOL_ADT_H

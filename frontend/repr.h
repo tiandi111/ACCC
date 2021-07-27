@@ -21,12 +21,15 @@ namespace cool {
 namespace repr {
 
 // todo: provide move ctor
+// todo: provide deep copier
 struct Attr {
     diag::TextInfo textInfo;
 
     Attr(int _line = -1, int _pos = -1, int _fileno = -1) : textInfo({_line, _pos, _fileno}) {}
 
-    Attr(diag::TextInfo _textInfo) : textInfo(_textInfo) {}
+    Attr(const diag::TextInfo& _textInfo) : textInfo(_textInfo) {}
+
+    Attr(const tok::Token& token) : textInfo(token.textInfo) {}
 
     Attr(tok::Token&& token) : textInfo(token.textInfo) {}
 };
@@ -76,8 +79,12 @@ struct Expr : Repr {
 };
 
 struct LinkBuiltin : public Expr {
+    string name;
     string type;
-    LinkBuiltin(const string& _type) : type(_type) {}
+    vector<string> params;
+    LinkBuiltin(const string& _name, const string& _type, vector<string> _params)
+    : name(_name), type(_type), params(move(_params)) {}
+    LinkBuiltin() = default;
     inline diag::TextInfo GetTextInfo() final { return diag::TextInfo{}; }
 };
 
@@ -208,6 +215,7 @@ struct Equal : public Binary {
 };
 
 struct MethodCall : public Binary {
+    string type;
     MethodCall(shared_ptr<Expr> _left, shared_ptr<Expr> _right) : Binary(move(_left), move(_right)) {}
 };
 

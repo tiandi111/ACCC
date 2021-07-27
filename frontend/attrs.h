@@ -31,12 +31,12 @@ struct IdAttr {
         Arg,
     };
     StorageClass storageClass;
-    uint32_t idx;
+    int idx; // index in its storage class
     string name;
     string type;
 
-    IdAttr(const string& _name, const string& _type)
-    : name(_name), type(_type) {}
+    IdAttr(StorageClass sc, int  _idx, const string& _name, const string& _type)
+    : storageClass(sc), idx(_idx), name(_name), type(_type) {}
 };
 
 struct TypeAttr {
