@@ -21,9 +21,9 @@ namespace cool {
 
 namespace parser {
 
-#define PARSER_CHECK_ASSGIN_RETURN(left, right, rItem) \
-    if (!checker.Visit(right)) return rItem; \
-    left = right;
+#define PARSER_CHECK_STAT_IF_FALSE_RETURN(checkee, stat, rItem) \
+    if (!checker.Visit(checkee)) return rItem; \
+    stat;
 
 #define PARSER_IF_FALSE_EXCEPTION(pred, msg) if (!pred) throw runtime_error(msg);
 
@@ -57,9 +57,7 @@ class ParsingResultChecker : public ExprVisitor<bool> {
     bool Visit(repr::FuncFeature &feat);
     bool Visit(repr::FieldFeature &feat);
     bool Visit(repr::Formal &form);
-    bool Visit(repr::Let::Formal &form);
-    bool Visit(repr::Expr& expr);
-    bool Visit(shared_ptr<repr::Expr>& expr);
+    bool Visit(repr::Expr* expr);
     bool Visit_(repr::LinkBuiltin& expr);
     bool Visit_(repr::Assign& expr);
     bool Visit_(repr::Add& expr);
@@ -78,6 +76,7 @@ class ParsingResultChecker : public ExprVisitor<bool> {
     bool Visit_(repr::LessThanOrEqual& expr);
     bool Visit_(repr::LessThan& expr);
     bool Visit_(repr::Let& expr);
+    bool Visit(repr::Let::Decl& expr);
     bool Visit_(repr::MethodCall& expr);
     bool Visit_(repr::Multiply& expr);
     bool Visit_(repr::Minus& expr);
@@ -136,42 +135,42 @@ class Parser {
 
     int ScopeEnd();
 
-    repr::Program ParseProgram();
+    repr::Program* ParseProgram();
 
-    repr::Class ParseClass();
+    repr::Class* ParseClass();
 
-    repr::FuncFeature ParseFuncFeature();
-    repr::FieldFeature ParseFieldFeature();
+    repr::FuncFeature* ParseFuncFeature();
+    repr::FieldFeature* ParseFieldFeature();
 
-    repr::Formal ParseFormal();
+    repr::Formal* ParseFormal();
 
-    shared_ptr<repr::Expr> ParseExpr();
-    repr::If ParseIf();
-    repr::Block ParseBlock();
-    repr::While ParseWhile();
-    repr::Let ParseLet();
-    repr::Case ParseCase();
-    repr::ID ParseID();
-    repr::Assign ParseAssign();
-    repr::Call ParseCall();
-    repr::New ParseNew();
-    repr::Integer ParseInteger();
-    repr::String ParseString();
-    repr::True ParseTrue();
-    repr::False ParseFalse();
+    repr::Expr* ParseExpr();
+    repr::If* ParseIf();
+    repr::Block* ParseBlock();
+    repr::While* ParseWhile();
+    repr::Let* ParseLet();
+    repr::Case* ParseCase();
+    repr::ID* ParseID();
+    repr::Assign* ParseAssign();
+    repr::Call* ParseCall();
+    repr::New* ParseNew();
+    repr::Integer* ParseInteger();
+    repr::String* ParseString();
+    repr::True* ParseTrue();
+    repr::False* ParseFalse();
 
-    repr::IsVoid ParseIsVoid();
-    repr::Negate ParseNegate();
-    repr::Not ParseNot();
+    repr::IsVoid* ParseIsVoid();
+    repr::Negate* ParseNegate();
+    repr::Not* ParseNot();
 
-    repr::Add ParseAdd(shared_ptr<repr::Expr> left);
-    repr::Minus ParseMinus(shared_ptr<repr::Expr> left);
-    repr::Multiply ParseMultiply(shared_ptr<repr::Expr>left);
-    repr::Divide ParseDivide(shared_ptr<repr::Expr> left);
-    repr::LessThan ParseLessThan(shared_ptr<repr::Expr> left);
-    repr::LessThanOrEqual ParseLessThanOrEqual(shared_ptr<repr::Expr> left);
-    repr::Equal ParseEqual(shared_ptr<repr::Expr> left);
-    repr::MethodCall ParseMethodCall(shared_ptr<repr::Expr> left);
+    repr::Add* ParseAdd(repr::Expr* left);
+    repr::Minus* ParseMinus(repr::Expr* left);
+    repr::Multiply* ParseMultiply(repr::Expr* left);
+    repr::Divide* ParseDivide(repr::Expr* left);
+    repr::LessThan* ParseLessThan(repr::Expr* left);
+    repr::LessThanOrEqual* ParseLessThanOrEqual(repr::Expr* left);
+    repr::Equal* ParseEqual(repr::Expr* left);
+    repr::MethodCall* ParseMethodCall(repr::Expr* left);
 };
 
 } // parser

@@ -43,9 +43,9 @@ struct TypeAttr {
     string name;
     string parent;
     shared_ptr<repr::Class> cls;
-    inline string Name() { return cls->name.val; }
-    inline string Parent() { return cls->parent.val; }
-    inline bool Is(const string& type) { return cls->name.val == type; }
+    inline string Name() { return cls->GetName().Value(); }
+    inline string Parent() { return cls->GetParent().Value(); }
+    inline bool Is(const string& type) { return cls->GetName().Value() == type; }
 };
 
 } // attr

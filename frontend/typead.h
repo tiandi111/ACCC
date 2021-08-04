@@ -23,7 +23,7 @@ class TypeAdvisor {
   private:
     struct Node {
         string type;
-        shared_ptr<repr::Class> cls;
+        repr::Class* cls;
         shared_ptr<Node> parent;
         vector<shared_ptr<Node>> children;
     };
@@ -33,13 +33,13 @@ class TypeAdvisor {
     shared_ptr<Node> get(const string& type);
 
   public:
-    TypeAdvisor(shared_ptr<repr::Class> rootClass);
+    TypeAdvisor(repr::Class* rootClass);
 
     bool Contains(const string& type);
 
-    void AddType(shared_ptr<repr::Class> cls);
+    void AddType(repr::Class* cls);
 
-    shared_ptr<repr::Class> GetTypeRepr(const string& type);
+    repr::Class* GetTypeRepr(const string& type);
 
     bool Conforms(const string& left, const string& right, const string& C);
 
@@ -47,7 +47,7 @@ class TypeAdvisor {
 
     string LeastCommonAncestor(vector<string>& types);
 
-    void BottomUpVisit(const string& type, function<bool(shared_ptr<repr::Class>)> f);
+    void BottomUpVisit(const string& type, function<bool(repr::Class*)> f);
 };
 
 } // namespace type

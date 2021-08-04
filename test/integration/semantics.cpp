@@ -29,7 +29,7 @@ void cool::integration::RunFrontEnd(const Test& test) {
         PassContext passContext(diagnosis);
         PassManager::Refresh();
         PassManager::Register<SemanticChecking>();
-        PassManager::Run(prog, passContext);
+        PassManager::Run(*prog, passContext);
         if (!diagnosis.Empty()) {
             cout<< "-------------- " << test.title << ": " << case_.title << " OUTPUT --------------" <<endl;
             diagnosis.Output(cout);

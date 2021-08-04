@@ -194,14 +194,15 @@ string LLVMGen::FunctionName(const string& name, const string& selfType) {
 }
 
 Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type, const string& selfType,
-    vector<shared_ptr<Formal>>& args) {
+    vector<Formal*> args) {
     auto funcName = FunctionName(name, selfType);
 
     auto function = module->getFunction(funcName);
     if (function) return function;
 
     vector<Type *> argTypes = {GetLLVMType(selfType)};
-    for(auto& arg : args) argTypes.emplace_back(GetLLVMType(arg->type.val));
+    for(auto& arg : args)
+        argTypes.emplace_back(GetLLVMType(arg->GetType().Value()));
 
     FunctionType* ft = FunctionType::get(GetLLVMType(type), argTypes, false);
 
@@ -209,8 +210,10 @@ Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type
 
     unsigned idx = 0;
     for (auto& arg : function->args()) {
-        if (idx == 0) arg.setName("self");
-        else arg.setName(args.at(idx-1)->name.val);
+        if (idx == 0)
+            arg.setName("self");
+        else
+            arg.setName(args.at(idx-1)->GetName().Value());
         idx++;
     }
 
@@ -289,13 +292,13 @@ llvm::Function* LLVMGen::CreateNewOperatorDeclIfNx(const string& type) {
 
 
 llvm::Function* LLVMGen::CreateNewOperatorBody(Class &cls) {
-    auto function = CreateNewOperatorDeclIfNx(cls.name.val);
+    auto function = CreateNewOperatorDeclIfNx(cls.GetName().Value());
 
     BasicBlock* bb = BasicBlock::Create(*context, "entry", function);
     builder->SetInsertPoint(bb);
 
-    if (builtin::IsBuiltinClass(cls.name.val)) {
-        builder->CreateRet(DefaultNewOperator(cls.name.val));
+    if (builtin::IsBuiltinClass(cls.GetName().Value())) {
+        builder->CreateRet(DefaultNewOperator(cls.GetName().Value()));
         return function;
     }
 
@@ -303,17 +306,17 @@ llvm::Function* LLVMGen::CreateNewOperatorBody(Class &cls) {
     uint32_t size = cls.GetFieldFeatures().size() * 4;
     auto mallocFunc = module->getFunction("mallocool");
     auto orgPtr = builder->CreateCall(mallocFunc, {ConstInt64(size)});
-    auto ptr = builder->CreatePointerCast(orgPtr, CreateStructPointerTypeIfNx(cls.name.val));
+    auto ptr = builder->CreatePointerCast(orgPtr, CreateStructPointerTypeIfNx(cls.GetName().Value()));
 
     // init fields
     uint32_t i = 0;
     for (auto& field : cls.GetFieldFeatures()) {
         Value* value;
         Value* fieldPtr = builder->CreateGEP(ptr, ConstInt32s({0, i++}));
-        if (field->expr)
-            value = Visit(*field->expr);
+        if (field->GetExpr())
+            value = Visit(*field->GetExpr());
         else
-            value = DefaultNewOperator(field->type.val);
+            value = DefaultNewOperator(field->GetType().Value());
         builder->CreateStore(value, fieldPtr);
     }
 
@@ -352,10 +355,14 @@ void LLVMGen::EmitObjectFile(const string &filename) {
 }
 
 llvm::Value* LLVMGen::genCall(const string& selfType, llvm::Value* self, repr::Call& call) {
-    auto function = CreateFunctionDeclIfNx(call.link->name.val, call.link->type.val, selfType, call.link->args);
+    auto function = CreateFunctionDeclIfNx(
+        call.GetLink()->GetName().Value(),
+        call.GetLink()->GetType().Value(),
+        selfType,
+        call.GetLink()->GetArgs());
 
     vector<Value*> args = {self};
-    for (auto& arg : call.args)
+    for (auto& arg : call.GetArgs())
         args.emplace_back(Visit(*arg));
 
     return builder->CreateCall(function, args);
@@ -373,7 +380,7 @@ void LLVMGen::Visit(Class &cls) {
     ENTER_SCOPE_GUARD(stable, {
         vector<Type *> Fields;
         for (auto& feat : cls.GetFieldFeatures()) Fields.emplace_back(Visit(*feat));
-        StructType* ST = CreateOpaqueStructTypeIfNx(cls.name.val);
+        StructType* ST = CreateOpaqueStructTypeIfNx(cls.GetName().Value());
         ST->setBody(Fields, false);
 
         for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
@@ -386,21 +393,25 @@ Value * LLVMGen::Visit(FuncFeature &feat) {
     Function* function;
     ENTER_SCOPE_GUARD(stable, {
 
-        if (stable.GetClass()->name.val == "Main" && feat.name.val == "main") {
+        if (stable.GetClass()->GetName().Value() == "Main" && feat.GetName().Value() == "main") {
 
             function =  CreateFunctionMain();
             BasicBlock* bb = BasicBlock::Create(*context, "entry", function);
             builder->SetInsertPoint(bb);
-            builder->Insert(Visit(*feat.expr));
+            builder->Insert(Visit(*feat.GetExpr()));
             builder->CreateRetVoid();
 
         } else {
 
-            auto funcName = FunctionName(feat.name.val, stable.GetClass()->name.val);
+            auto funcName = FunctionName(feat.GetName().Value(), stable.GetClass()->GetName().Value());
             function = module->getFunction(funcName);
 
             if (!function)
-                function = CreateFunctionDeclIfNx(feat.name.val, feat.type.val, stable.GetClass()->name.val, feat.args);
+                function = CreateFunctionDeclIfNx(
+                    feat.GetName().Value(),
+                    feat.GetType().Value(),
+                    stable.GetClass()->GetName().Value(),
+                    feat.GetArgs());
 
             if (!function)
                 throw runtime_error("create llvm function failed");
@@ -415,7 +426,7 @@ Value * LLVMGen::Visit(FuncFeature &feat) {
                 i++;
             }
 
-            builder->CreateRet(Visit(*feat.expr));
+            builder->CreateRet(Visit(*feat.GetExpr()));
         }
 
     })
@@ -423,11 +434,11 @@ Value * LLVMGen::Visit(FuncFeature &feat) {
 }
 
 Type * LLVMGen::Visit(FieldFeature &feat) {
-    return GetLLVMType(feat.type.val);
+    return GetLLVMType(feat.GetType().Value());
 }
 
 Type* LLVMGen::Visit(Formal& formal) {
-    return GetLLVMType(formal.type.val);
+    return GetLLVMType(formal.GetType().Value());
 }
 
 Value* LLVMGen::Visit(repr::Expr& expr) {
@@ -435,9 +446,9 @@ Value* LLVMGen::Visit(repr::Expr& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::LinkBuiltin& expr) {
-    auto function = module->getFunction(expr.name);
+    auto function = module->getFunction(expr.GetName());
     vector<Value*> args;
-    for (auto& param : expr.params) {
+    for (auto& param : expr.GetParams()) {
         auto arg = llvmStable.GetArg(param);
         if (IsStringLLVMType(arg)) {
             arg = builder->CreateGEP(arg, ConstInt32s({0, 1}));
@@ -447,25 +458,25 @@ Value* LLVMGen::Visit_(repr::LinkBuiltin& expr) {
     }
     auto ret = builder->CreateCall(function, args);
     // C runtime functions only return void pointer, cast it to the correct type.
-    auto rType = GetLLVMType(expr.type);
+    auto rType = GetLLVMType(expr.GetType());
     if (rType->isPointerTy())
         return builder->CreatePointerCast(ret, rType);
     return ret;
 }
 
 Value* LLVMGen::Visit_(repr::Assign& expr) {
-    builder->CreateStore(Visit(*expr.expr), Visit(*expr.id));
-    return Visit(*expr.id);
+    builder->CreateStore(Visit(*expr.GetExpr()), Visit(*expr.GetId()));
+    return Visit(*expr.GetId());
 }
 
 Value* LLVMGen::Visit_(repr::Add& expr) {
-    return builder->CreateAdd(Visit(*expr.left),Visit(*expr.right));
+    return builder->CreateAdd(Visit(*expr.GetLeft()),Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::Block& expr) {
     Value* value;
     ENTER_SCOPE_GUARD(stable, {
-        for (auto& eExpr : expr.exprs) value = Visit(*eExpr);
+        for (auto& eExpr : expr.GetExprs()) value = Visit(*eExpr);
     })
     return value;
 }
@@ -478,18 +489,18 @@ Value* LLVMGen::Visit_(repr::Case& expr) {
 Value* LLVMGen::Visit_(repr::Call& expr) {
     Value* value;
     ENTER_SCOPE_GUARD(stable, {
-        value = genCall(stable.GetClass()->name.val, llvmStable.GetSelfVar(), expr);
+        value = genCall(stable.GetClass()->GetName().Value(), llvmStable.GetSelfVar(), expr);
     })
     return value;
 }
 
 Value* LLVMGen::Visit_(repr::Divide& expr) {
-    return builder->CreateSDiv(Visit(*expr.left), Visit(*expr.right));
+    return builder->CreateSDiv(Visit(*expr.GetLeft()), Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::Equal& expr) {
-    auto left = Visit(*expr.left);
-    auto right = Visit(*expr.right);
+    auto left = Visit(*expr.GetLeft());
+    auto right = Visit(*expr.GetRight());
     if (IsStringLLVMType(left)) {
         if (!IsStringLLVMType(right)) throw runtime_error("");
         // todo: Create a built function to compare string content
@@ -508,7 +519,7 @@ Value* LLVMGen::Visit_(repr::False& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::ID& expr) {
-    auto idAttr = stable.GetIdAttr(expr.name.val);
+    auto idAttr = stable.GetIdAttr(expr.GetName().Value());
     switch (idAttr->storageClass) {
         case attr::IdAttr::Field: {
             auto self = llvmStable.GetSelfVar();
@@ -525,14 +536,14 @@ Value* LLVMGen::Visit_(repr::ID& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::IsVoid& expr) {
-    auto value = Visit(*expr.expr);
+    auto value = Visit(*expr.GetExpr());
     if (value->getType()->isPointerTy() && !IsStringLLVMType(value))
         return builder->CreateIsNull(value);     // todo: valid?
     return ConstantInt::getFalse(Type::getInt32Ty(*context));
 }
 
 Value* LLVMGen::Visit_(repr::Integer& expr) {
-    return ConstInt32(expr.val.val);
+    return ConstInt32(expr.Value().Value());
 }
 
 Value* LLVMGen::Visit_(repr::If& expr) {
@@ -541,34 +552,34 @@ Value* LLVMGen::Visit_(repr::If& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::LessThanOrEqual& expr) {
-    return builder->CreateICmp(CmpInst::ICMP_SLE, Visit(*expr.left), Visit(*expr.right));
+    return builder->CreateICmp(CmpInst::ICMP_SLE, Visit(*expr.GetLeft()), Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::LessThan& expr) {
-    return builder->CreateICmp(CmpInst::ICMP_SLT, Visit(*expr.left), Visit(*expr.right));
+    return builder->CreateICmp(CmpInst::ICMP_SLT, Visit(*expr.GetLeft()), Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::Let& expr) {
-    auto visitFormal = [&](repr::Let::Formal& formal) {
+    auto visitFormal = [&](repr::Let::Decl& decl) {
         Value* value;
-        // note: alloca is a pointer points to pointer of type 'formal.type.val'
-        auto type = GetLLVMType(formal.type.val);
-        auto alloca = builder->CreateAlloca(type, nullptr, formal.name.val);
-        if (formal.expr)
-            value = Visit(*formal.expr);
+        // note: alloca is a pointer points to pointer of type 'formal.GetType().Value()'
+        auto type = GetLLVMType(decl.GetType().Value());
+        auto alloca = builder->CreateAlloca(type, nullptr, decl.GetName().Value());
+        if (decl.GetExpr())
+            value = Visit(*decl.GetExpr());
         else
-            value = DefaultNewOperator(formal.type.val);
+            value = DefaultNewOperator(decl.GetType().Value());
         builder->CreateStore(value, alloca);
         return alloca;
     };
     Value* value;
-    for (int i = 0; i < expr.formals.size(); i++) {
-        auto formal = expr.formals.at(i);
+    for (int i = 0; i < expr.GetDecls().size(); i++) {
+        auto decl = expr.GetDecls().at(i);
         stable.EnterScope();
-        llvmStable.InsertLocalVar(formal->name.val, visitFormal(*formal));
+        llvmStable.InsertLocalVar(decl->GetName().Value(), visitFormal(*decl));
     }
-    value = Visit(*expr.expr);
-    for (int i = 0; i < expr.formals.size(); i++)
+    value = Visit(*expr.GetExpr());
+    for (int i = 0; i < expr.GetDecls().size(); i++)
         stable.LeaveScope();
     return value;
 }
@@ -576,35 +587,35 @@ Value* LLVMGen::Visit_(repr::Let& expr) {
 Value* LLVMGen::Visit_(repr::MethodCall& expr) {
     Value* value;
     ENTER_SCOPE_GUARD(stable, {
-        value = genCall(expr.type, Visit(*expr.left), *static_pointer_cast<repr::Call>(expr.right));
+        value = genCall(expr.GetType(), Visit(*expr.GetLeft()), *static_cast<repr::Call*>(expr.GetRight()));
     })
     return value;
 }
 
 Value* LLVMGen::Visit_(repr::Multiply& expr) {
-    return builder->CreateMul(Visit(*expr.left),Visit(*expr.right));
+    return builder->CreateMul(Visit(*expr.GetLeft()),Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::Minus& expr) {
-    return builder->CreateSub(Visit(*expr.left),Visit(*expr.right));
+    return builder->CreateSub(Visit(*expr.GetLeft()),Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::Negate& expr) {
-    return builder->CreateNeg(Visit(*expr.expr));
+    return builder->CreateNeg(Visit(*expr.GetExpr()));
 }
 
 Value* LLVMGen::Visit_(repr::New& expr) {
-    auto type = expr.type.val;
+    auto type = expr.GetType().Value();
     auto newOp = module->getFunction(type);
     return builder->CreateCall(newOp, {});
 }
 
 Value* LLVMGen::Visit_(repr::Not& expr) {
-    return builder->CreateNot(Visit(*expr.expr));
+    return builder->CreateNot(Visit(*expr.GetExpr()));
 }
 
 Value* LLVMGen::Visit_(repr::String& expr) {
-    return AllocLLVMConstStringStruct(expr.val.val);
+    return AllocLLVMConstStringStruct(expr.Value().Value());
 }
 
 Value* LLVMGen::Visit_(repr::True& expr) {

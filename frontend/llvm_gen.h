@@ -91,7 +91,7 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     string FunctionName(const string& name, const string& C);
     // get the Function if existed, otherwise create one
     llvm::Function* CreateFunctionDeclIfNx(const string& name, const string& type,
-        const string& selfType, vector<shared_ptr<Formal>>& args);
+        const string& selfType, vector<Formal*> args);
 
     llvm::Function* CreateFunctionMain();
     void CreateRuntimeFunctionDecls();

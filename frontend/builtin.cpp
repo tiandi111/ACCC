@@ -12,145 +12,148 @@ using namespace cool;
 using namespace builtin;
 using namespace repr;
 
-repr::FuncFeature builtin::GetAbortFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetAbortFuncFeature() {
+    return new FuncFeature(
         StringAttr("abort"),
         StringAttr("Object"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
-            {}
-    };
+        new LinkBuiltin()
+    );
 }
 
-repr::FuncFeature builtin::GetTypeNameFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetTypeNameFuncFeature() {
+    return new FuncFeature(
         StringAttr("type_name"),
         StringAttr("String"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {}
-    };
+    );
 }
 
-repr::FuncFeature builtin::GetCopyFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetCopyFuncFeature() {
+    return new FuncFeature(
         StringAttr("copy"),
         StringAttr("SELF_TYPE"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {}
-    };
+    );
 }
 
-repr::Class builtin::GetObjectClass() {
-    return {
+repr::Class* builtin::GetObjectClass() {
+    return new Class(
         StringAttr("Object"),
-            StringAttr(""),
-            {
+        StringAttr(""),
+        {
 //        make_shared<FuncFeature>(Abort),
 //        make_shared<FuncFeature>(TypeName),
 //        make_shared<FuncFeature>(Copy),
-            },
-            {},
-    };
+        },
+        {}
+    );
 }
 
-repr::FuncFeature builtin::GetOutStringFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetOutStringFuncFeature() {
+    return new FuncFeature(
         StringAttr("out_string"),
         StringAttr("SELF_TYPE"),
-        make_shared<LinkBuiltin>(LinkBuiltin{
+        new LinkBuiltin(
             "out_string",
             "SELF_TYPE",
             {"x"}
-        }),
-        {make_shared<Formal>(Formal(StringAttr("x"), StringAttr("String")))}
-    };
+        ),
+        {
+            new Formal(StringAttr("x"), StringAttr("String"))
+        }
+    );
 }
 
-repr::FuncFeature builtin::GetOutIntFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetOutIntFuncFeature() {
+    return new FuncFeature(
         StringAttr("out_int"),
         StringAttr("SELF_TYPE"),
-        make_shared<LinkBuiltin>(LinkBuiltin{
+        new LinkBuiltin(
             "out_int",
             "SELF_TYPE",
             {"x"}
-        }),
-        {make_shared<Formal>(Formal(StringAttr("x"), StringAttr("Int")))}
-    };
+        ),
+        {
+            new Formal(StringAttr("x"), StringAttr("Int"))
+        }
+    );
 }
 
-repr::FuncFeature builtin::GetInStringFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetInStringFuncFeature() {
+    return new FuncFeature(
         StringAttr("in_string"),
         StringAttr("String"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {}
-    };
+    );
 }
 
-repr::FuncFeature builtin::GetInIntFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetInIntFuncFeature() {
+    return new FuncFeature(
         StringAttr("in_int"),
         StringAttr("Int"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {}
-    };
+    );
 }
 
-repr::Class builtin::GetIOClass() {
-    return {
+repr::Class* builtin::GetIOClass() {
+    return new Class(
         StringAttr("IO"),
         StringAttr("Object"),
         {
-            make_shared<FuncFeature>(GetOutStringFuncFeature()),
-            make_shared<FuncFeature>(GetOutIntFuncFeature()),
+            GetOutStringFuncFeature(),
+            GetOutIntFuncFeature(),
 //        make_shared<FuncFeature>(InString),
 //        make_shared<FuncFeature>(InInt),
         },
-        {},
-    };
+        {}
+    );
 }
 
-repr::Class builtin::GetIntClass() {
-    return {
+repr::Class* builtin::GetIntClass() {
+    return new Class(
         StringAttr("Int"),
         StringAttr("Object"),
         {},
         {}
-    };
+    );
 }
 
-repr::FuncFeature builtin::GetLengthFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetLengthFuncFeature() {
+    return new FuncFeature(
         StringAttr("length"),
         StringAttr("Int"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {}
-    };
+    );
 }
 
-repr::FuncFeature builtin::GetConcatFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetConcatFuncFeature() {
+    return new FuncFeature(
         StringAttr("String"),
         StringAttr("String"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {}
-    };
+    );
 }
 
-repr::FuncFeature builtin::GetSubstrFuncFeature() {
-    return {
+repr::FuncFeature* builtin::GetSubstrFuncFeature() {
+    return new FuncFeature(
         StringAttr("substr"),
         StringAttr("String"),
-        make_shared<LinkBuiltin>(LinkBuiltin()),
+        new LinkBuiltin(),
         {
-            make_shared<Formal>(Formal(StringAttr("i"), StringAttr("Int"))),
-            make_shared<Formal>(Formal(StringAttr("l"), StringAttr("Int"))),
+            new Formal(StringAttr("i"), StringAttr("Int")),
+            new Formal(StringAttr("l"), StringAttr("Int")),
         }
-    };
+    );
 }
 
-repr::Class builtin::GetStringClass() {
-    return {
+repr::Class* builtin::GetStringClass() {
+    return new Class(
         StringAttr("String"),
         StringAttr("Object"),
         {
@@ -158,17 +161,17 @@ repr::Class builtin::GetStringClass() {
 //        make_shared<FuncFeature>(Concat),
 //        make_shared<FuncFeature>(Substr),
         },
-        {},
-    };
+        {}
+    );
 }
 
-repr::Class builtin::GetBoolClass() {
-    return {
+repr::Class* builtin::GetBoolClass() {
+    return new Class(
         StringAttr("Bool"),
         StringAttr("Object"),
         {},
         {}
-    };
+    );
 }
 
 unordered_set<string> builtinClassNames = {
@@ -192,7 +195,7 @@ unordered_set<string> builtin::GetInheritableBuiltInClasseNames() {
     return unordered_set<string>(inheritableClasses.begin(), inheritableClasses.end());
 }
 
-vector<repr::Class> builtin::GetBuiltinClasses() {
+vector<repr::Class*> builtin::NewBuiltinClasses() {
     return {
         GetObjectClass(),
         GetIOClass(),

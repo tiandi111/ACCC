@@ -24,25 +24,28 @@ using namespace adt;
 
 repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassContext& ctx) {
 
-    for (auto& cls : builtin::GetBuiltinClasses()) {
+    for (auto& cls : builtin::NewBuiltinClasses()) {
         if (!prog.AddClass(cls)) {
-            ctx.diag.EmitError(prog.GetClassPtr(cls.name.val)->GetTextInfo(),
-                "built-in class '" + cls.name.val + "' cannot be redefined");
-            prog.InsertClass(cls);
+            ctx.diag.EmitError(prog.GetClassPtr(cls->GetName().Value())->GetTextInfo(),
+                "built-in class '" + cls->GetName().Value() + "' cannot be redefined");
+            prog.DeleteClass(cls->GetName().Value());
+            assert(prog.AddClass(cls));
         }
     }
 
     for (auto& cls : prog.GetClasses()) {
-        if (cls->parent.Empty() && cls->name.val != "Object") cls->parent.val = "Object";
+        if (cls->GetParent().Empty() && cls->GetName().Value() != "Object")
+            cls->SetParent({"Object", cls->GetParent().TextInfo()});
     }
     return prog;
 }
 
 repr::Class ana::CheckBuiltinInheritance::operator()(repr::Class& cls, pass::PassContext& ctx) {
     using namespace builtin;
-    if (IsBuiltinClass(cls.parent.val) && !IsInheritable(cls.parent.val)) {
-        ctx.diag.EmitError(cls.parent.textInfo, "cannot inherit built-in class '" + cls.parent.val + "'");
-        cls.parent.val = "Object";
+    if (IsBuiltinClass(cls.GetParent().Value()) && !IsInheritable(cls.GetParent().Value())) {
+        ctx.diag.EmitError(cls.GetParent().TextInfo(),
+            "cannot inherit built-in class '" + cls.GetParent().Value() + "'");
+        cls.SetParent({"Object", cls.GetParent().TextInfo()}); //
     }
     return cls;
 }
@@ -50,19 +53,19 @@ repr::Class ana::CheckBuiltinInheritance::operator()(repr::Class& cls, pass::Pas
 repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::PassContext& ctx) {
     type::TypeAdvisor typeAdvisor(prog.GetClassPtr("Object"));
 
-    vector<shared_ptr<repr::Class>> stack;
+    vector<repr::Class*> stack;
 
-    auto emitCycleError = [](vector<shared_ptr<repr::Class>>& cycle, diag::Diagnosis& diag) {
+    auto emitCycleError = [](vector<repr::Class*>& cycle, diag::Diagnosis& diag) {
         assert(cycle.size() > 1);
         string str = "cyclic inheritance detected: ";
         for (int i = 0; i < cycle.size() - 1; i++) {
             str += i == 0 ? "" : ", ";
-            str += "'" + cycle.at(i)->name.val + "' inherits '" + cycle.at(i+1)->name.val + "'";
+            str += "'" + cycle.at(i)->GetName().Value() + "' inherits '" + cycle.at(i+1)->GetName().Value() + "'";
         }
         diag.EmitFatal(cycle.back()->GetTextInfo(), str);
     };
 
-    auto add = [](vector<shared_ptr<repr::Class>>& classes, type::TypeAdvisor& typeAd) {
+    auto add = [](vector<repr::Class*>& classes, type::TypeAdvisor& typeAd) {
         while (!classes.empty()) {
             typeAd.AddType(classes.back());
             classes.pop_back();
@@ -72,14 +75,15 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
     for (auto cls : prog.GetClasses()) {
         unordered_set<string> visiting;
         while (cls) {
-            if (typeAdvisor.Contains(cls->name.val)) break;
+            if (typeAdvisor.Contains(cls->GetName().Value()))
+                break;
             stack.emplace_back(cls);
-            if (visiting.find(cls->name.val) != visiting.end()) {
+            if (visiting.find(cls->GetName().Value()) != visiting.end()) {
                 emitCycleError(stack, ctx.diag);
                 return prog;
             }
-            visiting.insert(cls->name.val);
-            cls = prog.GetClassPtr(cls->parent.val);
+            visiting.insert(cls->GetName().Value());
+            cls = prog.GetClassPtr(cls->GetParent().Value());
         }
         add(stack, typeAdvisor);
     }
@@ -91,15 +95,18 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
 
 repr::Class ana::CheckInheritedAttributes::operator()(repr::Class& cls, pass::PassContext& ctx) {
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
-    auto check = [&](shared_ptr<repr::Class> ancestor) {
+
+    auto check = [&](repr::Class* ancestor) {
         for (auto& field : cls.GetFieldFeatures()) {
-            if (ancestor->GetFieldFeaturePtr(field->name.val)) {
-                ctx.diag.EmitError(field->GetTextInfo(), "inherited attribute '" + field->name.val + "' cannot be redefined");
+            if (ancestor->GetFieldFeaturePtr(field->GetName().Value())) {
+                ctx.diag.EmitError(field->GetTextInfo(),
+                    "inherited attribute '" + field->GetName().Value() + "' cannot be redefined");
             }
         }
         return false;
     };
-    typeAdvisor.BottomUpVisit(cls.parent.val, check);
+
+    typeAdvisor.BottomUpVisit(cls.GetParent().Value(), check);
     return cls;
 }
 
@@ -107,55 +114,68 @@ repr::Class ana::AddInheritedAttributes::operator()(repr::Class& cls, pass::Pass
     using namespace repr;
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
 
-    vector<shared_ptr<FieldFeature>> feats = cls.GetFieldFeatures();
-    for (auto& feat : feats) cls.DeleteFieldFeature(feat->name.val);
+    vector<FieldFeature*> feats = cls.GetFieldFeatures();
+    for (auto& feat : feats)
+        cls.DeleteFieldFeature(feat->GetName().Value());
 
-    stack<shared_ptr<Class>> stack;
-    shared_ptr<Class> cur = typeAdvisor.GetTypeRepr(cls.parent.val);
+    stack<Class*> stack;
+    Class* cur = typeAdvisor.GetTypeRepr(cls.GetParent().Value());
     while (cur) {
         stack.push(cur);
-        cur = typeAdvisor.GetTypeRepr(cur->parent.val);
+        cur = typeAdvisor.GetTypeRepr(cur->GetParent().Value());
     }
 
     while (!stack.empty()) {
-        for (auto& field : stack.top()->GetFieldFeatures()) cls.AddFieldFeature(*field);
+        for (auto& field : stack.top()->GetFieldFeatures())
+            cls.AddFieldFeature(field->Clone());
         stack.pop();
     }
 
-    for(auto& feat : feats) cls.AddFieldFeature(*feat);
+    for(auto& feat : feats)
+        cls.AddFieldFeature(feat);
     return cls;
 }
 
 repr::Class ana::CheckInheritedMethods::operator()(repr::Class& cls, pass::PassContext& ctx) {
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
+
     auto valid = [](repr::FuncFeature& a, repr::FuncFeature& b) {
-        if (a.name.val != b.name.val || a.type.val != b.type.val || a.args.size() != b.args.size()) return false;
-        for(int i = 0; i < a.args.size(); i++) {
-            if (a.args.at(i)->type.val != b.args.at(i)->type.val) return false;
+        if (a.GetName().Value() != b.GetName().Value() ||
+            a.GetType().Value() != b.GetType().Value() ||
+            a.GetArgs().size() != b.GetArgs().size())
+            return false;
+        for(int i = 0; i < a.GetArgs().size(); i++) {
+            if (a.GetArgs().at(i)->GetType().Value() != b.GetArgs().at(i)->GetType().Value())
+                return false;
         }
         return true;
     };
-    auto check = [&](shared_ptr<repr::Class> ancestor) {
+
+    auto check = [&](repr::Class* ancestor) {
         for (auto& func : cls.GetFuncFeatures()) {
-            if (ancestor->GetFuncFeaturePtr(func->name.val) &&
-            !valid(*func, *(ancestor->GetFuncFeaturePtr(func->name.val)))) {
-                ctx.diag.EmitError(func->GetTextInfo(), "invalid method overload: '" + func->name.val + "'");
+
+            if (ancestor->GetFuncFeaturePtr(func->GetName().Value()) &&
+                !valid(*func, *(ancestor->GetFuncFeaturePtr(func->GetName().Value())))) {
+                ctx.diag.EmitError(func->GetTextInfo(),
+                    "invalid method overload: '" + func->GetName().Value() + "'");
             }
+
         }
         return false;
     };
-    typeAdvisor.BottomUpVisit(cls.parent.val, check);
+
+    typeAdvisor.BottomUpVisit(cls.GetParent().Value(), check);
     return cls;
 }
 
 repr::Class ana::AddInheritedMethods::operator()(repr::Class& cls, pass::PassContext& ctx) {
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
 
-    auto cur = typeAdvisor.GetTypeRepr(cls.parent.val);
+    auto cur = typeAdvisor.GetTypeRepr(cls.GetParent().Value());
     while (cur) {
         for (auto& func : cur->GetFuncFeatures())
-            cls.AddFuncFeature(*func);
-        cur = typeAdvisor.GetTypeRepr(cur->parent.val);
+            cls.AddFuncFeature(func->Clone());
+        cur = typeAdvisor.GetTypeRepr(cur->GetParent().Value());
     }
 
     return cls;
@@ -176,11 +196,12 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
 
         void Visit(repr::Program &prog) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &cls : prog.GetClasses()) Visit(cls);
+                for (auto &cls : prog.GetClasses())
+                    Visit(cls);
             }, nullptr)
         }
 
-        void Visit(shared_ptr<repr::Class> cls) {
+        void Visit(repr::Class* cls) {
             NEW_SCOPE_GUARD(stable, {
                 for (auto &feat : cls->GetFuncFeatures()) Visit(*feat);
                 for (int i = 0; i < cls->GetFieldFeatures().size(); i++)
@@ -190,19 +211,20 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
 
         void Visit(repr::FuncFeature &feat) {
             NEW_SCOPE_GUARD(stable, {
-                for (int i = 0; i < feat.args.size(); i++)
-                    Visit(*feat.args.at(i), i);
-                ExprVisitor::Visit(*feat.expr);
+                for (int i = 0; i < feat.GetArgs().size(); i++)
+                    Visit(*feat.GetArgs().at(i), i);
+                ExprVisitor::Visit(*feat.GetExpr());
             }, stable.GetClass())
         }
 
         void Visit(repr::FieldFeature &feat, int idx) {
-            stable.Current().Insert(IdAttr{IdAttr::Field, idx, feat.name.val, feat.type.val});
-            if (feat.expr) ExprVisitor::Visit(*feat.expr);
+            stable.Current().Insert(IdAttr{IdAttr::Field, idx, feat.GetName().Value(), feat.GetType().Value()});
+            if (feat.GetExpr())
+                ExprVisitor::Visit(*feat.GetExpr());
         }
 
         void Visit(repr::Formal &form, int idx) {
-            stable.Current().Insert(IdAttr{IdAttr::Arg, idx, form.name.val, form.type.val});
+            stable.Current().Insert(IdAttr{IdAttr::Arg, idx, form.GetName().Value(), form.GetType().Value()});
         }
 
         void Visit_(repr::LinkBuiltin& expr) {}
@@ -213,25 +235,26 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
 
         void Visit_(repr::Block& expr) {
             NEW_SCOPE_GUARD(stable, {
-                for (auto &x : expr.exprs) ExprVisitor::Visit(*x);
+                for (auto &x : expr.GetExprs())
+                    ExprVisitor::Visit(*x);
             }, stable.GetClass())
         }
 
         void Visit_(repr::Case& expr) {
-            ExprVisitor::Visit(*expr.expr);
-            for (auto& branch : expr.branches) {
+            ExprVisitor::Visit(*expr.GetExpr());
+            for (auto& branch : expr.GetBranches()) {
                 NEW_SCOPE_GUARD(stable, {
                     stable.Current().Insert(IdAttr{IdAttr::Local, stable.Current().NextLocalIdIdx(),
-                                                   branch->id.val, branch->type.val});
-                    ExprVisitor::Visit(*branch->expr);
+                                                   branch->GetId().Value(), branch->GetType().Value()});
+                    ExprVisitor::Visit(*branch->GetExpr());
                 }, stable.GetClass())
             }
         }
 
         // this function does not take care of scope
         void VisitCall(repr::Call& expr) {
-            Visit_(*expr.id);
-            for (auto &arg : expr.args)
+            Visit_(*expr.GetId());
+            for (auto &arg : expr.GetArgs())
                 ExprVisitor::Visit(*arg);
         }
 
@@ -247,15 +270,15 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
         void Visit_(repr::ID& expr) { return; }
 
         void Visit_(repr::IsVoid& expr) {
-            ExprVisitor::Visit(*expr.expr);
+            ExprVisitor::Visit(*expr.GetExpr());
         }
         void Visit_(repr::Integer& expr) { return; }
 
         void Visit_(repr::If& expr) {
             NEW_SCOPE_GUARD(stable,{
-                ExprVisitor::Visit(*expr.ifExpr);
-                NEW_SCOPE_GUARD(stable, ExprVisitor::Visit(*expr.thenExpr), stable.GetClass());
-                NEW_SCOPE_GUARD(stable, ExprVisitor::Visit(*expr.elseExpr), stable.GetClass());
+                ExprVisitor::Visit(*expr.GetIfExpr());
+                NEW_SCOPE_GUARD(stable, ExprVisitor::Visit(*expr.GetThenExpr()), stable.GetClass());
+                NEW_SCOPE_GUARD(stable, ExprVisitor::Visit(*expr.GetElseExpr()), stable.GetClass());
             }, stable.GetClass())
         }
 
@@ -263,21 +286,24 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
         void Visit_(repr::LessThan& expr) { VisitBinary(expr); }
 
         void Visit_(repr::Let& expr) {
-            for (int i = 0; i < expr.formals.size(); i++) {
+            auto decls = expr.GetDecls();
+            for (int i = 0; i < decls.size(); i++) {
                 stable.NewScope(stable.GetClass());
-                auto& form = expr.formals.at(i);
+                auto* decl = decls.at(i);
                 stable.Current().Insert(IdAttr{IdAttr::Local, stable.Current().NextLocalIdIdx(),
-                                               form->name.val, form->type.val});
-                if (form->expr) ExprVisitor::Visit(*form->expr);
+                                               decl->GetName().Value(), decl->GetType().Value()});
+                if (decl->GetExpr())
+                    ExprVisitor::Visit(*decl->GetExpr());
             }
-            ExprVisitor::Visit(*expr.expr);
-            for (int i = 0; i < expr.formals.size(); i++) stable.FinishScope();
+            ExprVisitor::Visit(*expr.GetExpr());
+            for (int i = 0; i < expr.GetDecls().size(); i++)
+                stable.FinishScope();
         }
 
         void Visit_(repr::MethodCall& expr) {
             NEW_SCOPE_GUARD(stable, {
-                ExprVisitor::Visit(*expr.left);
-                VisitCall(*static_pointer_cast<repr::Call>(expr.right));
+                ExprVisitor::Visit(*expr.GetLeft());
+                VisitCall(*static_cast<repr::Call*>(expr.GetRight()));
             }, stable.GetClass())
         }
 
@@ -285,26 +311,26 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
         void Visit_(repr::Minus& expr) { VisitBinary(expr); }
 
         void Visit_(repr::Negate& expr) {
-            ExprVisitor::Visit(*expr.expr);
+            ExprVisitor::Visit(*expr.GetExpr());
         }
         void Visit_(repr::New& expr) { return; }
 
         void Visit_(repr::Not& expr) {
-            ExprVisitor::Visit(*expr.expr);
+            ExprVisitor::Visit(*expr.GetExpr());
         }
 
         void Visit_(repr::String& expr) { return; }
         void Visit_(repr::True& expr) { return; }
         void Visit_(repr::While& expr) {
             NEW_SCOPE_GUARD(stable, {
-                ExprVisitor::Visit(*expr.whileExpr);
-                ExprVisitor::Visit(*expr.loopExpr);
+                ExprVisitor::Visit(*expr.GetWhileExpr());
+                ExprVisitor::Visit(*expr.GetLoopExpr());
             }, stable.GetClass())
         }
 
         void VisitBinary(repr::Binary& expr) {
-            ExprVisitor::Visit(*expr.left);
-            ExprVisitor::Visit(*expr.right);
+            ExprVisitor::Visit(*expr.GetLeft());
+            ExprVisitor::Visit(*expr.GetRight());
         }
     };
 
@@ -347,54 +373,56 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
 
         void Visit(repr::Class &cls) {
             ENTER_SCOPE_GUARD(stable, {
-                auto& p = cls.parent;
-                for (auto& feat : cls.GetFieldFeatures()) Visit(*feat);
-                for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
+                for (auto& feat : cls.GetFieldFeatures())
+                    Visit(*feat);
+                for (auto& feat : cls.GetFuncFeatures())
+                    Visit(*feat);
             })
         }
 
         void Visit(repr::FieldFeature &feat) {
-            if (!feat.expr) return;
-            TypeName exprType = ExprVisitor<TypeName>::Visit(*feat.expr);
-            if (!typeAdvisor.Conforms(exprType, feat.type.val, stable.GetClass()->name.val))
-                ctx.diag.EmitError(feat.GetTextInfo(), invalidAssignmentMsg(exprType, feat.type.val));
+            if (!feat.GetExpr()) return;
+            TypeName exprType = ExprVisitor<TypeName>::Visit(*feat.GetExpr());
+            if (!typeAdvisor.Conforms(exprType, feat.GetType().Value(), stable.GetClass()->GetName().Value()))
+                ctx.diag.EmitError(feat.GetTextInfo(), invalidAssignmentMsg(exprType, feat.GetType().Value()));
         }
 
         void Visit(repr::FuncFeature &feat) {
             ENTER_SCOPE_GUARD(stable, {
-                TypeName exprType = ExprVisitor<TypeName>::Visit(*feat.expr);
-                if (!typeAdvisor.Conforms(exprType, feat.type.val, stable.GetClass()->name.val))
-                    ctx.diag.EmitError(feat.GetTextInfo(), invalidAssignmentMsg(exprType, feat.type.val));
+                TypeName exprType = ExprVisitor<TypeName>::Visit(*feat.GetExpr());
+                if (!typeAdvisor.Conforms(exprType, feat.GetType().Value(), stable.GetClass()->GetName().Value()))
+                    ctx.diag.EmitError(feat.GetTextInfo(), invalidAssignmentMsg(exprType, feat.GetType().Value()));
             })
         }
 
         void Visit(repr::Formal &form) {}
 
-        TypeName Visit_(repr::LinkBuiltin& expr) { return expr.type; }
+        TypeName Visit_(repr::LinkBuiltin& expr) { return expr.GetType(); }
 
         TypeName Visit_(repr::Assign& expr) {
-            auto exprType = ExprVisitor<TypeName>::Visit(*expr.expr);
-            auto idAttr = stable.GetIdAttr(expr.id->name.val);
+            auto exprType = ExprVisitor<TypeName>::Visit(*expr.GetExpr());
+            auto idAttr = stable.GetIdAttr(expr.GetId()->GetName().Value());
             if (!idAttr)
-                ctx.diag.EmitError(expr.id->GetTextInfo(), idNotFound(expr.id->name.val));
-            else if (!typeAdvisor.Conforms(exprType, idAttr->type, stable.GetClass()->name.val))
-                ctx.diag.EmitError(expr.expr->GetTextInfo(), invalidAssignmentMsg(exprType, idAttr->type));
+                ctx.diag.EmitError(expr.GetId()->GetTextInfo(), idNotFound(expr.GetId()->GetName().Value()));
+            else if (!typeAdvisor.Conforms(exprType, idAttr->type, stable.GetClass()->GetName().Value()))
+                ctx.diag.EmitError(expr.GetExpr()->GetTextInfo(), invalidAssignmentMsg(exprType, idAttr->type));
             return exprType;
         }
 
         TypeName Visit_(repr::Add& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.left) != "Int")
-                ctx.diag.EmitError(expr.left->GetTextInfo(), "operand for '+' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.right) != "Int")
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "operand for '+' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+                ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '+' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '+' must be 'Int'");
             return "Int";
         }
 
         TypeName Visit_(repr::Block& expr) {
             TypeName rType;
             ENTER_SCOPE_GUARD(stable, {
-                for (int i = 0; i < expr.exprs.size() - 1; i++) ExprVisitor<TypeName>::Visit(*expr.exprs.at(i));
-                rType = ExprVisitor<TypeName>::Visit(*expr.exprs.back());
+                for (int i = 0; i < expr.GetExprs().size() - 1; i++)
+                    ExprVisitor<TypeName>::Visit(*expr.GetExprs().at(i));
+                rType = ExprVisitor<TypeName>::Visit(*expr.GetExprs().back());
             })
             return rType;;
         }
@@ -402,11 +430,12 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         TypeName Visit_(repr::Case& expr) {
             unordered_set<TypeName> typeSet;
             vector<TypeName> types;
-            for (auto& branch : expr.branches) {
+            for (auto& branch : expr.GetBranches()) {
                 ENTER_SCOPE_GUARD(stable, {
-                    auto type = ExprVisitor<TypeName>::Visit(*branch->expr);
+                    auto type = ExprVisitor<TypeName>::Visit(*branch->GetExpr());
                     if (typeSet.find(type) != typeSet.end())
-                        ctx.diag.EmitError(branch->type.textInfo, "duplicate type '" + type + "' in case expression");
+                        ctx.diag.EmitError(branch->GetType().TextInfo(),
+                            "duplicate type '" + type + "' in case expression");
                     typeSet.insert(type);
                     types.emplace_back(type);
                 })
@@ -417,10 +446,10 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         TypeName Visit_(repr::Call& expr) {
             TypeName rType;
             ENTER_SCOPE_GUARD(stable,
-                auto funcPtr = CheckCall(stable.GetClass()->name.val, expr);
+                auto funcPtr = CheckCall(stable.GetClass()->GetName().Value(), expr);
                 if (funcPtr) {
-                    expr.link = funcPtr;
-                    rType = funcPtr->type.val;
+                    expr.SetLink(funcPtr);
+                    rType = funcPtr->GetType().Value();
                 })
             return rType;
         }
@@ -428,39 +457,40 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         TypeName Visit_(repr::MethodCall& expr) {
             TypeName rType;
             ENTER_SCOPE_GUARD(stable,
-                auto callExpr = static_pointer_cast<repr::Call>(expr.right);
-                expr.type = ExprVisitor<TypeName>::Visit(*expr.left);
-                auto funcPtr = CheckCall(expr.type, *callExpr);
+                auto callExpr = static_cast<repr::Call*>(expr.GetRight());
+                expr.SetType(ExprVisitor<TypeName>::Visit(*expr.GetLeft()));
+                auto funcPtr = CheckCall(expr.GetType(), *callExpr);
                 if (funcPtr) {
-                    callExpr->link = funcPtr;
-                    rType = funcPtr->type.val;
+                    callExpr->SetLink(funcPtr);
+                    rType = funcPtr->GetType().Value();
                 })
             return rType;
         }
 
-        shared_ptr<repr::FuncFeature> CheckCall(TypeName type, repr::Call& expr) {
+        repr::FuncFeature* CheckCall(TypeName type, repr::Call& expr) {
             auto cls = typeAdvisor.GetTypeRepr(type);
             if (!cls) {
                 ctx.diag.EmitError(expr.GetTextInfo(), "caller type '" + type + "' not found");
                 return nullptr;
             }
-            auto funcPtr = cls->GetFuncFeaturePtr(expr.id->name.val);
+            auto funcPtr = cls->GetFuncFeaturePtr(expr.GetId()->GetName().Value());
             if (!funcPtr) {
-                ctx.diag.EmitError(expr.GetTextInfo(), "method '" + expr.id->name.val + "' not found");
+                ctx.diag.EmitError(expr.GetTextInfo(), "method '" + expr.GetId()->GetName().Value() + "' not found");
                 return nullptr;
             }
-            if (expr.args.size() != funcPtr->args.size()) {
-                ctx.diag.EmitError(expr.GetTextInfo(), "expected " + to_string(funcPtr->args.size()) +
-                " arguments, got " + to_string(expr.args.size()));
+            if (expr.GetArgs().size() != funcPtr->GetArgs().size()) {
+                ctx.diag.EmitError(expr.GetTextInfo(), "expected " + to_string(funcPtr->GetArgs().size()) +
+                " arguments, got " + to_string(expr.GetArgs().size()));
                 return funcPtr;
             }
-            for (int i = 0; i < expr.args.size(); i++) {
-                auto& arg = expr.args.at(i);
+            for (int i = 0; i < expr.GetArgs().size(); i++) {
+                auto& arg = expr.GetArgs().at(i);
                 TypeName got = ExprVisitor<TypeName>::Visit(*arg);
-                TypeName expected = funcPtr->args.at(i)->type.val;
+                TypeName expected = funcPtr->GetArgs().at(i)->GetType().Value();
                 if (!typeAdvisor.Conforms(got, expected, got)) {
-                    ctx.diag.EmitError(expr.GetTextInfo(), "invalid argument '" + funcPtr->args.at(i)->name.val +
-                    "': expected '" + expected + "', got '" + got + "'");
+                    ctx.diag.EmitError(expr.GetTextInfo(), "invalid argument '" +
+                    funcPtr->GetArgs().at(i)->GetName().Value() + "': expected '" + expected +
+                    "', got '" + got + "'");
                     return funcPtr;
                 }
             }
@@ -468,109 +498,111 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
         }
 
         TypeName Visit_(repr::Divide& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.left) != "Int")
-                ctx.diag.EmitError(expr.left->GetTextInfo(), "operand for '/' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.right) != "Int")
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "operand for '/' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+                ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '/' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '/' must be 'Int'");
             return "Int";
         }
 
         TypeName Visit_(repr::Equal& expr) {
-            auto leftType = ExprVisitor<TypeName>::Visit(*expr.left);
-            auto rightType = ExprVisitor<TypeName>::Visit(*expr.right);
+            auto leftType = ExprVisitor<TypeName>::Visit(*expr.GetLeft());
+            auto rightType = ExprVisitor<TypeName>::Visit(*expr.GetRight());
             if (((leftType == "Int" || leftType == "String" || leftType == "Bool") ||
                 (rightType == "Int" || rightType == "String" || rightType == "Bool")) &&
                 (leftType != rightType))
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "'Int', 'String', 'Bool' can only be compared with the same type");
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "'Int', 'String', 'Bool' can only be compared with the same type");
             return "Bool";
         }
 
         TypeName Visit_(repr::False& expr) { return "Bool"; }
 
         TypeName Visit_(repr::ID& expr) {
-            auto idAttr = stable.GetIdAttr(expr.name.val);
+            auto idAttr = stable.GetIdAttr(expr.GetName().Value());
             if (!idAttr) {
-                ctx.diag.EmitError(expr.GetTextInfo(), idNotFound(expr.name.val));
+                ctx.diag.EmitError(expr.GetTextInfo(), idNotFound(expr.GetName().Value()));
                 return "";
             }
             return idAttr->type;
         }
 
         TypeName Visit_(repr::IsVoid& expr) {
-            ExprVisitor<TypeName>::Visit(*expr.expr);
+            ExprVisitor<TypeName>::Visit(*expr.GetExpr());
             return "Bool";
         }
 
         TypeName Visit_(repr::Integer& expr) { return "Int"; }
 
         TypeName Visit_(repr::If& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.ifExpr) != "Bool")
-                ctx.diag.EmitError(expr.ifExpr->GetTextInfo(), "predicate in if statement must be 'Bool'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetIfExpr()) != "Bool")
+                ctx.diag.EmitError(expr.GetIfExpr()->GetTextInfo(), "predicate in if statement must be 'Bool'");
             return typeAdvisor.LeastCommonAncestor(
-                ExprVisitor<TypeName>::Visit(*expr.thenExpr),
-                ExprVisitor<TypeName>::Visit(*expr.elseExpr));
+                ExprVisitor<TypeName>::Visit(*expr.GetThenExpr()),
+                ExprVisitor<TypeName>::Visit(*expr.GetElseExpr()));
         }
 
         TypeName Visit_(repr::LessThanOrEqual& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.left) != "Int")
-                ctx.diag.EmitError(expr.left->GetTextInfo(), "operand for '<=' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.right) != "Int")
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "operand for '<=' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+                ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '<=' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '<=' must be 'Int'");
             return "Bool";
         }
 
         TypeName Visit_(repr::LessThan& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.left) != "Int")
-                ctx.diag.EmitError(expr.left->GetTextInfo(), "operand for '<' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.right) != "Int")
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "operand for '<' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+                ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '<' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '<' must be 'Int'");
             return "Bool";
         }
 
         TypeName Visit_(repr::Let& expr) {
             TypeName rType;
-            for (int i = 0; i < expr.formals.size(); i++) {
+            auto decls = expr.GetDecls();
+            for (int i = 0; i < decls.size(); i++) {
                 stable.EnterScope();
-                auto& form = expr.formals.at(i);
-                if (form->expr) {
-                    auto exprType = ExprVisitor<TypeName>::Visit(*form->expr);
-                    if (!typeAdvisor.Conforms(exprType, form->type.val, stable.GetClass()->name.val))
-                        ctx.diag.EmitError(form->expr->GetTextInfo(), invalidAssignmentMsg(exprType, form->type.val));
+                auto* decl = decls.at(i);
+                if (decl->GetExpr()) {
+                    auto exprType = ExprVisitor<TypeName>::Visit(*decl->GetExpr());
+                    if (!typeAdvisor.Conforms(exprType, decl->GetType().Value(), stable.GetClass()->GetName().Value()))
+                        ctx.diag.EmitError(decl->GetExpr()->GetTextInfo(),
+                            invalidAssignmentMsg(exprType, decl->GetType().Value()));
                 }
             }
-            rType = ExprVisitor<TypeName>::Visit(*expr.expr);
-            for (int i = 0; i < expr.formals.size(); i++) stable.LeaveScope();
+            rType = ExprVisitor<TypeName>::Visit(*expr.GetExpr());
+            for (int i = 0; i < expr.GetDecls().size(); i++) stable.LeaveScope();
             return rType;
         }
 
         TypeName Visit_(repr::Multiply& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.left) != "Int")
-                ctx.diag.EmitError(expr.left->GetTextInfo(), "operand for '*' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.right) != "Int")
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "operand for '*' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+                ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '*' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '*' must be 'Int'");
             return "Int";
         }
 
         TypeName Visit_(repr::Minus& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.left) != "Int")
-                ctx.diag.EmitError(expr.left->GetTextInfo(), "operand for '-' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.right) != "Int")
-                ctx.diag.EmitError(expr.right->GetTextInfo(), "operand for '-' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+                ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '-' must be 'Int'");
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+                ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '-' must be 'Int'");
             return "Int";
         }
 
         TypeName Visit_(repr::Negate& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.expr) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetExpr()) != "Int")
                 ctx.diag.EmitError(expr.GetTextInfo(), "operand for '~' must be 'Int'");
             return "Int";
         }
 
         TypeName Visit_(repr::New& expr) {
-            return expr.type.val;
+            return expr.GetType().Value();
         }
 
         TypeName Visit_(repr::Not& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.expr) != "Bool")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetExpr()) != "Bool")
                 ctx.diag.EmitError(expr.GetTextInfo(), "operand for 'not' must be 'Int'");
             return "Bool";
         }
@@ -581,9 +613,9 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
 
         TypeName Visit_(repr::While& expr) {
             ENTER_SCOPE_GUARD(stable, {
-                if (ExprVisitor<TypeName>::Visit(*expr.whileExpr) != "Bool")
+                if (ExprVisitor<TypeName>::Visit(*expr.GetWhileExpr()) != "Bool")
                     ctx.diag.EmitError(expr.GetTextInfo(), "predicate in while expression must be 'Bool'");
-                ExprVisitor<TypeName>::Visit(*expr.loopExpr);
+                ExprVisitor<TypeName>::Visit(*expr.GetLoopExpr());
             })
             return "Object";
         }
@@ -615,24 +647,23 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
 
         void Visit(repr::Class &cls) {
             ENTER_SCOPE_GUARD(stable, {
-                auto& p = cls.parent;
                 for (auto& feat : cls.GetFieldFeatures()) Visit(*feat);
                 for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
             })
         }
 
         void Visit(repr::FieldFeature &feat) {
-            if (feat.type.val == "SELF_TYPE")
-                feat.type.val = stable.GetClass()->name.val;
-            if (feat.expr)
-                Visit(*feat.expr);
+            if (feat.GetType().Value() == "SELF_TYPE")
+                feat.GetType().Value() = stable.GetClass()->GetName().Value();
+            if (feat.GetExpr())
+                Visit(*feat.GetExpr());
         }
 
         void Visit(repr::FuncFeature &feat) {
             ENTER_SCOPE_GUARD(stable, {
-                if (feat.type.val == "SELF_TYPE")
-                    feat.type.val = stable.GetClass()->name.val;
-                Visit(*feat.expr);
+                if (feat.GetType().Value() == "SELF_TYPE")
+                    feat.GetType().Value() = stable.GetClass()->GetName().Value();
+                Visit(*feat.GetExpr());
             })
         }
 
@@ -641,32 +672,33 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
         void Visit(repr::Expr& expr) { ExprVisitor<void>::Visit(expr); }
 
         void Visit_(repr::LinkBuiltin& expr) {
-            if (expr.type == "SELF_TYPE")
-                expr.type = stable.GetClass()->name.val;
+            if (expr.GetType() == "SELF_TYPE")
+                expr.GetType() = stable.GetClass()->GetName().Value();
         }
 
-        void Visit_(repr::Assign& expr) { Visit(*expr.expr); }
+        void Visit_(repr::Assign& expr) { Visit(*expr.GetExpr()); }
 
         void Visit_(repr::Add& expr) {
-            Visit(*expr.left);
-            Visit(*expr.left);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetLeft());
         }
 
         void Visit_(repr::Block& expr) {
             ENTER_SCOPE_GUARD(stable, {
-                for (int i = 0; i < expr.exprs.size() - 1; i++) Visit(*expr.exprs.at(i));
+                for (int i = 0; i < expr.GetExprs().size() - 1; i++)
+                    Visit(*expr.GetExprs().at(i));
             })
         }
 
         void Visit_(repr::Case& expr) {
-            Visit(*expr.expr);
-            for (auto& branch : expr.branches) {
-                ENTER_SCOPE_GUARD(stable, Visit(*branch->expr);)
+            Visit(*expr.GetExpr());
+            for (auto& branch : expr.GetBranches()) {
+                ENTER_SCOPE_GUARD(stable, Visit(*branch->GetExpr());)
             }
         }
 
         void VisitCall(repr::Call& expr) {
-            for (auto& arg : expr.args) Visit(*arg);
+            for (auto& arg : expr.GetArgs()) Visit(*arg);
         }
 
         void Visit_(repr::Call& expr) {
@@ -675,74 +707,77 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
 
         void Visit_(repr::MethodCall& expr) {
             ENTER_SCOPE_GUARD(stable, {
-                Visit(*expr.left);
-                VisitCall(*static_pointer_cast<repr::Call>(expr.right));
+                Visit(*expr.GetLeft());
+                VisitCall(*static_cast<repr::Call*>(expr.GetRight()));
             })
         }
 
         void Visit_(repr::Divide& expr) {
-            Visit(*expr.left);
-            Visit(*expr.right);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetRight());
         }
 
         void Visit_(repr::Equal& expr) {
-            Visit(*expr.left);
-            Visit(*expr.right);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetRight());
         }
 
         void Visit_(repr::False& expr) {}
 
         void Visit_(repr::ID& expr) {}
 
-        void Visit_(repr::IsVoid& expr) { Visit(*expr.expr); }
+        void Visit_(repr::IsVoid& expr) { Visit(*expr.GetExpr()); }
 
         void Visit_(repr::Integer& expr) {}
 
         void Visit_(repr::If& expr) {
-            Visit(*expr.ifExpr);
-            Visit(*expr.thenExpr);
-            Visit(*expr.elseExpr);
+            Visit(*expr.GetIfExpr());
+            Visit(*expr.GetThenExpr());
+            Visit(*expr.GetElseExpr());
         }
 
         void Visit_(repr::LessThanOrEqual& expr) {
-            Visit(*expr.left);
-            Visit(*expr.right);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetRight());
         }
 
         void Visit_(repr::LessThan& expr) {
-            Visit(*expr.left);
-            Visit(*expr.right);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetRight());
         }
 
         void Visit_(repr::Let& expr) {
-            for (int i = 0; i < expr.formals.size(); i++) {
+            auto decls = expr.GetDecls();
+            for (int i = 0; i < decls.size(); i++) {
                 stable.EnterScope();
-                Visit(*expr.formals.at(i)->expr);
+                if (decls.at(i)->GetExpr())
+                    Visit(*decls.at(i)->GetExpr());
             }
-            Visit(*expr.expr);
-            for (int i = 0; i < expr.formals.size(); i++) stable.LeaveScope();
+            Visit(*expr.GetExpr());
+            for (int i = 0; i < decls.size(); i++)
+                stable.LeaveScope();
         }
 
         void Visit_(repr::Multiply& expr) {
-            Visit(*expr.left);
-            Visit(*expr.right);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetRight());
         }
 
         void Visit_(repr::Minus& expr) {
-            Visit(*expr.left);
-            Visit(*expr.right);
+            Visit(*expr.GetLeft());
+            Visit(*expr.GetRight());
         }
 
         void Visit_(repr::Negate& expr) {
-            Visit(*expr.expr);
+            Visit(*expr.GetExpr());
         }
 
         void Visit_(repr::New& expr) {
-            if (expr.type.val == "SELF_TYPE")
-                expr.type.val = stable.GetClass()->name.val;
+            if (expr.GetType().Value() == "SELF_TYPE")
+                expr.GetType().Value() = stable.GetClass()->GetName().Value();
         }
 
-        void Visit_(repr::Not& expr) { Visit(*expr.expr); }
+        void Visit_(repr::Not& expr) { Visit(*expr.GetExpr()); }
 
         void Visit_(repr::String& expr) {}
 
@@ -750,8 +785,8 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
 
         void Visit_(repr::While& expr) {
             ENTER_SCOPE_GUARD(stable, {
-                Visit(*expr.whileExpr);
-                Visit(*expr.loopExpr);
+                Visit(*expr.GetWhileExpr());
+                Visit(*expr.GetLoopExpr());
             })
         }
     };

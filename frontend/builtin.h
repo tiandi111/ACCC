@@ -17,29 +17,29 @@ namespace cool {
 
 namespace builtin {
 
-repr::FuncFeature GetAbortFuncFeature();
-repr::FuncFeature GetTypeNameFuncFeature();
-repr::FuncFeature GetCopyFuncFeature();
-repr::Class GetObjectClass();
+repr::FuncFeature* GetAbortFuncFeature();
+repr::FuncFeature* GetTypeNameFuncFeature();
+repr::FuncFeature* GetCopyFuncFeature();
+repr::Class* GetObjectClass();
 
-repr::FuncFeature GetOutStringFuncFeature();
-repr::FuncFeature GetOutIntFuncFeature();
-repr::FuncFeature GetInStringFuncFeature();
-repr::FuncFeature GetInIntFuncFeature();
-repr::Class GetIOClass();
+repr::FuncFeature* GetOutStringFuncFeature();
+repr::FuncFeature* GetOutIntFuncFeature();
+repr::FuncFeature* GetInStringFuncFeature();
+repr::FuncFeature* GetInIntFuncFeature();
+repr::Class* GetIOClass();
 
-repr::Class GetIntClass();
+repr::Class* GetIntClass();
 
-repr::FuncFeature GetLengthFuncFeature();
-repr::FuncFeature GetConcatFuncFeature();
-repr::FuncFeature GetSubstrFuncFeature();
-repr::Class GetStringClass();
+repr::FuncFeature* GetLengthFuncFeature();
+repr::FuncFeature* GetConcatFuncFeature();
+repr::FuncFeature* GetSubstrFuncFeature();
+repr::Class* GetStringClass();
 
-repr::Class GetBoolClass();
+repr::Class* GetBoolClass();
 
 unordered_set<string> GetBuiltinClassNames();
 unordered_set<string> GetInheritableBuiltInClasseNames();
-vector<repr::Class> GetBuiltinClasses();
+vector<repr::Class*> NewBuiltinClasses();
 
 bool IsBuiltinClass(const string& name);
 bool IsInheritable(const string& name);

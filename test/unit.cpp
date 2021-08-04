@@ -30,12 +30,11 @@ void TestProgram() {
     Program prog = {{}};
 
     Class cls1 = {{"test"}, {"p1"}, {}, {}};
-    Class cls2 = {{"test"}, {"p2"}, {}, {}};
 
-    assert(prog.AddClass(cls1));
-    assert(prog.GetClassPtr(cls1.name.val)->parent.val == cls1.parent.val);
-    prog.InsertClass(cls2);
-    assert(prog.GetClassPtr(cls1.name.val)->parent.val == cls2.parent.val);
+    assert(prog.AddClass(&cls1));
+    assert(prog.GetClassPtr(cls1.GetName().Value()));
+    prog.DeleteClass(cls1.GetName().Value());
+    assert(!prog.GetClassPtr(cls1.GetName().Value()));
 }
 
 void TestMatchMultiple() {
@@ -83,7 +82,7 @@ void TestParseBinary() {
     });
     try {
         ID id;
-        auto binary = parser.ParseAdd(make_shared<ID>(id));
+        auto binary = parser.ParseAdd(&id);
         testDiag.Output(cout);
         assert(testDiag.Size() == 0);
     } catch (exception& e) {
@@ -668,7 +667,7 @@ void TestFrontEnd() {
     pass::PassManager::Register<ana::InitSymbolTable>();
     pass::PassManager::Register<ana::BuildInheritanceTree>();
     pass::PassManager::Register<ana::TypeChecking>();
-    pass::PassManager::Run(prog, passContext);
+    pass::PassManager::Run(*prog, passContext);
     diagnosis.Output(cout);
 }
 

@@ -98,12 +98,12 @@ class SymbolTable {
     int idx;
     int numLocalId;
     unordered_map<string, shared_ptr<attr::IdAttr>> ids;
-    shared_ptr<repr::Class> cls;
+    repr::Class* cls;
 
   public:
     SymbolTable() = default;
 
-    SymbolTable(uint32_t _idx, shared_ptr<repr::Class> _cls)
+    SymbolTable(uint32_t _idx, repr::Class* _cls)
         : idx(_idx), cls(_cls) {}
 
     int NumLocalId() { return numLocalId; }
@@ -128,7 +128,7 @@ class SymbolTable {
         ids.insert({attr.name, make_shared<attr::IdAttr>(attr)});
     }
 
-    shared_ptr<repr::Class> GetClass() {
+    repr::Class* GetClass() {
         return cls;
     }
 };
@@ -139,7 +139,7 @@ class ScopedTableSpecializer : ScopedTable<T> {};
 template<>
 class ScopedTableSpecializer<SymbolTable> : public ScopedTable<SymbolTable> {
 public:
-    void NewScope(shared_ptr<repr::Class> cls) {
+    void NewScope(repr::Class* cls) {
         val.emplace_back(SymbolTable(next, move(cls)));
         stack.push_back(next++);
     }
@@ -156,7 +156,7 @@ public:
         Current().Insert(attr);
     }
 
-    shared_ptr<repr::Class> GetClass() {
+    repr::Class* GetClass() {
         return Current().GetClass();
     }
 

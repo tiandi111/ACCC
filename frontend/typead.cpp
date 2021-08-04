@@ -14,33 +14,40 @@ shared_ptr<TypeAdvisor::Node> TypeAdvisor::get(const string& type) {
     return map.at(type);
 }
 
-TypeAdvisor::TypeAdvisor(shared_ptr<repr::Class> rootClass) {
-    root = make_shared<Node>(Node{rootClass->name.val, rootClass, nullptr, {}});
-    map.insert({rootClass->name.val, root});
+TypeAdvisor::TypeAdvisor(repr::Class* rootClass) {
+    root = make_shared<Node>(Node{rootClass->GetName().Value(), rootClass, nullptr, {}});
+    map.insert({rootClass->GetName().Value(), root});
 }
 
 bool TypeAdvisor::Contains(const string& type) {
     return (map.find(type) != map.end()) && map.at(type);
 }
 
-void TypeAdvisor::AddType(shared_ptr<repr::Class> cls) {
-    auto type = cls->name;
-    auto parent = cls->parent;
-    if (type.Empty()) throw runtime_error("type name cannot be ''");
-    if (parent.Empty()) throw runtime_error("parent type cannot be ''");
-    if (Contains(type.val)) throw runtime_error("type already existed");
+void TypeAdvisor::AddType(repr::Class* cls) {
+    auto type = cls->GetName();
+    auto parent = cls->GetParent();
+
+    if (type.Empty())
+        throw runtime_error("type name cannot be ''");
+    if (parent.Empty())
+        throw runtime_error("parent type cannot be ''");
+    if (Contains(type.Value()))
+        throw runtime_error("type already existed");
+
     auto parentNode = root;
     if (!parent.Empty()) {
-        parentNode = get(parent.val);
-        if (!parentNode) throw runtime_error("parent type '" + parent.val + "' not found");
+        parentNode = get(parent.Value());
+        if (!parentNode)
+            throw runtime_error("parent type '" + parent.Value() + "' not found");
     }
-    auto node = make_shared<Node>(Node{type.val, cls, parentNode});
+    auto node = make_shared<Node>(Node{type.Value(), cls, parentNode});
     parentNode->children.emplace_back(node);
-    map.insert({type.val, node});
+    map.insert({type.Value(), node});
 }
 
-shared_ptr<repr::Class> TypeAdvisor::GetTypeRepr(const string& type) {
-    if (!Contains(type)) return nullptr;
+repr::Class* TypeAdvisor::GetTypeRepr(const string& type) {
+    if (!Contains(type))
+        return nullptr;
     return get(type)->cls;
 }
 
@@ -80,7 +87,7 @@ string TypeAdvisor::LeastCommonAncestor(vector<string>& types) {
     return lca;
 }
 
-void TypeAdvisor::BottomUpVisit(const string& type, function<bool(shared_ptr<repr::Class>)> f) {
+void TypeAdvisor::BottomUpVisit(const string& type, function<bool(repr::Class*)> f) {
     auto node = get(type);
     while (node) {
         if (!node->cls) std::cout<< node->type << " has null cls ptr" <<endl;

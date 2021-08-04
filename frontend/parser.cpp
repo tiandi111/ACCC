@@ -9,7 +9,6 @@
 
 #include "parser.h"
 #include "repr.h"
-#include "tokenizer.h"
 #include "token.h"
 
 using namespace cool;
@@ -23,35 +22,30 @@ bool ParsingResultChecker::Visit(repr::Program &prog) {
 }
 
 bool ParsingResultChecker::Visit(repr::Class &cls) {
-    if (cls.name.Empty()) return false;
+    if (cls.GetName().Empty()) return false;
     for (auto& feat : cls.GetFieldFeatures()) if (!feat || !Visit(*feat)) return false;
     for (auto& feat : cls.GetFuncFeatures()) if (!feat || !Visit(*feat)) return false;
     return true;
 }
 
 bool ParsingResultChecker::Visit(repr::FuncFeature &feat) {
-    for (auto& arg : feat.args) if (!arg || !Visit(*arg)) return false;
-    return !feat.name.Empty() && !feat.type.Empty() && feat.expr && Visit(*feat.expr);
+    for (auto& arg : feat.GetArgs())
+        if (!arg || !Visit(*arg))
+            return false;
+    return !feat.GetName().Empty() && !feat.GetType().Empty() && feat.GetExpr() && Visit(feat.GetExpr());
 }
 
 bool ParsingResultChecker::Visit(repr::FieldFeature &feat) {
-    return !feat.name.Empty() && !feat.type.Empty() && (!feat.expr || (feat.expr && Visit(*feat.expr)));
+    return !feat.GetName().Empty() &&
+    !feat.GetType().Empty() &&
+    (!feat.GetExpr() || (feat.GetExpr() && Visit(feat.GetExpr())));
 }
 
 bool ParsingResultChecker::Visit(repr::Formal &form) {
-    return !form.name.Empty() && !form.type.Empty();
+    return !form.GetName().Empty() && !form.GetType().Empty();
 }
 
-bool ParsingResultChecker::Visit(repr::Let::Formal &form) {
-    return !form.name.Empty() && !form.type.Empty() && (!form.expr || (form.expr && Visit(*form.expr)));
-
-}
-
-bool ParsingResultChecker::Visit(repr::Expr& expr) {
-    return ExprVisitor<bool>::Visit(expr);
-}
-
-bool ParsingResultChecker::Visit(shared_ptr<repr::Expr>& expr) {
+bool ParsingResultChecker::Visit(repr::Expr* expr) {
     return expr && ExprVisitor<bool>::Visit(*expr);
 }
 
@@ -60,68 +54,75 @@ bool ParsingResultChecker::Visit_(repr::LinkBuiltin& expr) {
 }
 
 bool ParsingResultChecker::Visit_(repr::Assign& expr) {
-    return expr.id && Visit_(*expr.id) && Visit(expr.expr);
+    return expr.GetId() && Visit_(*expr.GetId()) && Visit(expr.GetExpr());
 }
 
 bool ParsingResultChecker::Visit_(repr::Add& expr) {
-    return Visit(expr.left) && Visit(expr.right);
+    return Visit(expr.GetLeft()) && Visit(expr.GetRight());
 }
 
 bool ParsingResultChecker::Visit_(repr::Block& expr) {
-    for (auto& e : expr.exprs) if (!Visit(e)) return false;
+    for (auto& e : expr.GetExprs()) if (!Visit(e)) return false;
     return true;
 }
 
 bool ParsingResultChecker::VisitBinary(repr::Binary& expr) {
-    return Visit(expr.left) && Visit(expr.right);
+    return Visit(expr.GetLeft()) && Visit(expr.GetRight());
 }
 
 bool ParsingResultChecker::Visit_(repr::Case& expr) {
-    if (expr.branches.empty()) return false;
-    for (auto& branch : expr.branches) if (!branch || !Visit(*branch)) return false;
-    return Visit(expr.expr);
+    if (expr.GetBranches().empty()) return false;
+    for (auto& branch : expr.GetBranches())
+        if (!branch || !Visit(*branch))
+            return false;
+    return Visit(expr.GetExpr());
 }
 
 bool ParsingResultChecker::Visit(repr::Case::Branch& branch) {
-    return !branch.id.Empty() && !branch.type.Empty() && Visit(branch.expr);
+    return !branch.GetId().Empty() && !branch.GetType().Empty() && Visit(branch.GetExpr());
 }
 
 bool ParsingResultChecker::Visit_(repr::Call& expr) {
-    for (auto& arg : expr.args) if (!arg && !Visit(*arg)) return false;
-    return expr.id && Visit_(*expr.id);
+    for (auto& arg : expr.GetArgs())
+        if (!arg && !Visit(arg)) return false;
+    return expr.GetId() && Visit_(*expr.GetId());
 }
 
 bool ParsingResultChecker::Visit_(repr::Divide& expr) { return VisitBinary(expr); }
 
 bool ParsingResultChecker::Visit_(repr::Equal& expr) { return VisitBinary(expr); }
 bool ParsingResultChecker::Visit_(repr::False& expr) { return true; }
-bool ParsingResultChecker::Visit_(repr::ID& expr) { return !expr.name.Empty(); }
-bool ParsingResultChecker::Visit_(repr::IsVoid& expr) { return Visit(expr.expr); }
+bool ParsingResultChecker::Visit_(repr::ID& expr) { return !expr.GetName().Empty(); }
+bool ParsingResultChecker::Visit_(repr::IsVoid& expr) { return Visit(expr.GetExpr()); }
 bool ParsingResultChecker::Visit_(repr::Integer& expr) { return true; }
 
 bool ParsingResultChecker::Visit_(repr::If& expr) {
-    return Visit(expr.ifExpr) && Visit(expr.thenExpr) && Visit(expr.elseExpr);
+    return Visit(expr.GetIfExpr()) && Visit(expr.GetThenExpr()) && Visit(expr.GetElseExpr());
 }
 
 bool ParsingResultChecker::Visit_(repr::LessThanOrEqual& expr) { return VisitBinary(expr); }
 bool ParsingResultChecker::Visit_(repr::LessThan& expr) { return VisitBinary(expr); }
 
 bool ParsingResultChecker::Visit_(repr::Let& expr) {
-    for (auto& form : expr.formals)
-        if (!form || form->name.Empty() || form->type.Empty() || (form->expr && !Visit(form->expr)))
-            return false;
-    return Visit(expr.expr);
+    for (auto& decl : expr.GetDecls())
+       if (!Visit(*decl))
+           return false;
+    return Visit(expr.GetExpr());
+}
+
+bool ParsingResultChecker::Visit(repr::Let::Decl& expr) {
+    return !expr.GetName().Empty() && !expr.GetType().Empty() && (!expr.GetExpr() || Visit(expr.GetExpr()));
 }
 
 bool ParsingResultChecker::Visit_(repr::MethodCall& expr) { return VisitBinary(expr); }
 bool ParsingResultChecker::Visit_(repr::Multiply& expr) { return VisitBinary(expr); }
 bool ParsingResultChecker::Visit_(repr::Minus& expr) { return VisitBinary(expr); }
-bool ParsingResultChecker::Visit_(repr::Negate& expr) { return Visit(expr.expr); }
-bool ParsingResultChecker::Visit_(repr::New& expr) { return !expr.type.Empty(); }
-bool ParsingResultChecker::Visit_(repr::Not& expr) { return Visit(expr.expr); }
+bool ParsingResultChecker::Visit_(repr::Negate& expr) { return Visit(expr.GetExpr()); }
+bool ParsingResultChecker::Visit_(repr::New& expr) { return !expr.GetType().Empty(); }
+bool ParsingResultChecker::Visit_(repr::Not& expr) { return Visit(expr.GetExpr()); }
 bool ParsingResultChecker::Visit_(repr::String& expr) { return true; }
 bool ParsingResultChecker::Visit_(repr::True& expr) { return true; }
-bool ParsingResultChecker::Visit_(repr::While& expr) { return Visit(expr.whileExpr) && Visit(expr.loopExpr); }
+bool ParsingResultChecker::Visit_(repr::While& expr) { return Visit(expr.GetWhileExpr()) && Visit(expr.GetLoopExpr()); }
 
 Parser::Parser(diag::Diagnosis& _diag, vector<Token> _toks)
 : diag(_diag), toks(std::move(_toks)), pos(0) {
@@ -240,16 +241,17 @@ diag::TextInfo Parser::GetTextInfo() {
 // note: the parsed ast must only contains valid nodes so that the semantic checking can be easier,
 //  i.e., they only need to check valid nodes. for this reason, the checker need only checks expr,
 //  for any grammer that contains expr, the grammer parser itseld should filter out invalid exprs.
-Program Parser::ParseProgram() {
-    Program prog(Peek().textInfo);
+Program* Parser::ParseProgram() {
+    auto prog = new Program(Peek().textInfo);
 
     while (!Empty()) {
 
         if (Match(Token::kClass)) {
             auto cls = ParseClass();
-            if (checker.Visit(cls) && !prog.AddClass(cls)) {
-                diag.EmitError(cls.GetTextInfo(), "class '" + cls.name.val + "' redefined, previous defined at: " +
-                prog.GetClassPtr(cls.name.val)->GetTextInfo().String());
+            if (checker.Visit(*cls) && !prog->AddClass(cls)) {
+                diag.EmitError(cls->GetTextInfo(), "class '" + cls->GetName().Value() +
+                "' redefined, previous defined at: " +
+                prog->GetClassPtr(cls->GetName().Value())->GetTextInfo().String());
             }
         } else {
             diag.EmitError(GetTextInfo(), "expected 'class' in class declaration");
@@ -261,18 +263,19 @@ Program Parser::ParseProgram() {
     return prog;
 }
 
-Class Parser::ParseClass() {
+Class* Parser::ParseClass() {
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kClass), "unexpected call to ParseClass");
-    Class cls;
 
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), cls.name = StringAttr(ConsumeReturn()),
-        "expected type identifier(start with capital letter)", cls);
+    auto cls = new Class();
+
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), cls->SetName(StringAttr(ConsumeReturn())),
+        "expected type identifier(start with capital letter)", nullptr)
 
     if (ConsumeIfMatch(Token::kInheirits))
-        PARSER_STAT_IF_FALSE_EMIT_DIAG_SKIP(Match(Token::TypeID), cls.parent = StringAttr(ConsumeReturn()),
+        PARSER_STAT_IF_FALSE_EMIT_DIAG_SKIP(Match(Token::TypeID), cls->SetParent(StringAttr(ConsumeReturn())),
             "expected type identifier(start with capital letter) after 'inherits'")
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenBrace), "expected '{' in class declaration", cls);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenBrace), "expected '{' in class declaration", nullptr)
     int closeBracePos = ReturnValidBraceMatchFor(Pos());
     if (closeBracePos < 0) {
         MoveTo(ScopeEnd()-1);
@@ -285,15 +288,17 @@ Class Parser::ParseClass() {
     while (!Empty()) {
         if (MatchMultiple({Token::ID, Token::kOpenParen})) {
             auto feat = ParseFuncFeature();
-            if (checker.Visit(feat) && !cls.AddFuncFeature(feat)) {
-                diag.EmitError(feat.GetTextInfo(),"method '" + feat.name.val + "' redefined, previous declared at: " +
-                cls.GetFuncFeaturePtr(feat.name.val)->GetTextInfo().String());
+            if (checker.Visit(*feat) && !cls->AddFuncFeature(feat)) {
+                diag.EmitError(feat->GetTextInfo(),"method '" + feat->GetName().Value() +
+                "' redefined, previous declared at: " +
+                cls->GetFuncFeaturePtr(feat->GetName().Value())->GetTextInfo().String());
             }
         } else if (Match(Token::ID)) {
             auto feat = ParseFieldFeature();
-            if (checker.Visit(feat) && !cls.AddFieldFeature(feat)) {
-                    diag.EmitError(feat.GetTextInfo(),"attribute '" + feat.name.val + "' redefined, previous declared at: " +
-                    cls.GetFieldFeaturePtr(feat.name.val)->GetTextInfo().String());
+            if (checker.Visit(*feat) && !cls->AddFieldFeature(feat)) {
+                    diag.EmitError(feat->GetTextInfo(),"attribute '" + feat->GetName().Value() +
+                    "' redefined, previous declared at: " +
+                    cls->GetFieldFeaturePtr(feat->GetName().Value())->GetTextInfo().String());
             }
         } else {
             diag.EmitError(GetTextInfo(), "expected identifier in class feature declaration");
@@ -309,11 +314,12 @@ Class Parser::ParseClass() {
     return cls;
 }
 
-FuncFeature Parser::ParseFuncFeature() {
-    FuncFeature feat;
+FuncFeature* Parser::ParseFuncFeature() {
+    auto feat = new FuncFeature();
 
-    PARSER_IF_FALSE_EXCEPTION(MatchMultiple({Token::ID, Token::kOpenParen}), "unexpected call to ParseFuncFeature");
-    feat.name = StringAttr(ConsumeReturn());
+    PARSER_IF_FALSE_EXCEPTION(MatchMultiple({Token::ID, Token::kOpenParen}),
+        "unexpected call to ParseFuncFeature");
+    feat->SetName(StringAttr(ConsumeReturn()));
 
     int closeParenPos = ReturnValidParenMatchFor(Pos());
     if (closeParenPos < 0) {
@@ -324,24 +330,29 @@ FuncFeature Parser::ParseFuncFeature() {
     Consume();
 
     PushScopeEnd(closeParenPos);
-    while (!Empty()) {
-        if (!feat.args.empty() && !ConsumeIfMatch(Token::kComma)) {
+    vector<Formal*> args;
+    for (int i = 0; !Empty(); i++) {
+        if (i > 0 && !ConsumeIfMatch(Token::kComma)) {
             diag.EmitError(GetTextInfo(), "expected ',' after formal parameter");
             break;
         }
-        auto form = ParseFormal();
-        if (checker.Visit(form)) feat.args.emplace_back(make_shared<Formal>(form));
+        auto arg = ParseFormal();
+        if (checker.Visit(*arg))
+            args.emplace_back(arg);
         else break;
     }
+    feat->SetArgs(args);
     PopScopeEnd();
     MoveTo(closeParenPos+1);
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':' in class method definition", feat);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon),
+        "expected ':' in class method definition", feat);
 
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_SKIP(Match(Token::TypeID), feat.type = StringAttr(ConsumeReturn()),
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_SKIP(Match(Token::TypeID), feat->SetType(StringAttr(ConsumeReturn())),
         "expected type identifier in class method definition");
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenBrace), "expected '{' in class method definition", feat);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenBrace),
+        "expected '{' in class method definition", feat);
 
     int closeBracePos = ReturnValidBraceMatchFor(Pos());
     if (closeBracePos < 0) {
@@ -356,68 +367,76 @@ FuncFeature Parser::ParseFuncFeature() {
     if (!Empty()) diag.EmitError(GetTextInfo(), "only one expression allowed in function declaration");
     PopScopeEnd();
 
-    if (checker.Visit(expr)) feat.expr = expr;
+    if (checker.Visit(expr))
+        feat->SetExpr(expr);
     MoveTo(closeBracePos+1);
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' in class method definition", feat);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon),
+        "expected ';' in class method definition", feat);
     return feat;
 }
 
-FieldFeature Parser::ParseFieldFeature() {
-    FieldFeature feat;
+FieldFeature* Parser::ParseFieldFeature() {
+    auto feat = new FieldFeature();
 
     PARSER_IF_FALSE_EXCEPTION(Match(Token::ID), "unexpected call to ParseFieldFeature");
-    feat.name = StringAttr(ConsumeReturn());
+    feat->SetName(StringAttr(ConsumeReturn()));
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':' in class field declaration", feat);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon),
+        "expected ':' in class field declaration", feat);
 
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), feat.type = StringAttr(ConsumeReturn()),
-                                          "expected type identifier in class field declaration", feat);
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID),
+        feat->SetType(StringAttr(ConsumeReturn())),
+        "expected type identifier in class field declaration", feat);
 
 
     if (ConsumeIfMatch(Token::kAssignment)) {
         auto expr = ParseExpr();
-        PARSER_CHECK_ASSGIN_RETURN(feat.expr, expr, feat)
+        PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, feat->SetExpr(expr), feat)
     }
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' after class field declaration", feat);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon),
+        "expected ';' after class field declaration", feat);
     return feat;
 }
 
-Formal Parser::ParseFormal() {
-    Formal form;
+Formal* Parser::ParseFormal() {
+    auto formal = new Formal();
 
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), form.name = StringAttr(ConsumeReturn()),
-                                          "expected parameter identifier in formal parameter declaration", form);
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID),
+        formal->SetName(StringAttr(ConsumeReturn())),
+        "expected parameter identifier in formal parameter declaration", formal);
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':' in formal parameter declaration", form);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon),
+        "expected ':' in formal parameter declaration", formal);
 
     PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
         Match(Token::TypeID),
         PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
             Peek().val != "SELF_TYPE",
-            form.type = StringAttr(ConsumeReturn()),
-            "'SELF_TYPE' cannot be used in formal parameter declaration", form),
-        "expected type identifier in formal parameter declaration", form);
-    return form;
+            formal->SetType(StringAttr(ConsumeReturn())),
+            "'SELF_TYPE' cannot be used in formal parameter declaration", formal),
+        "expected type identifier in formal parameter declaration", formal);
+    return formal;
 }
 
 // todo: precedence
-shared_ptr<Expr> Parser::ParseExpr() {
-    stack<shared_ptr<Expr>> exprStack;
+// todo: this function is complex, try to simplify
+Expr* Parser::ParseExpr() {
+    stack<Expr*> exprStack;
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(!Empty(), "expected expression", nullptr);
 
     while (!Empty()) {
-        shared_ptr<Expr> expr;
+        Expr* expr;
         auto tokType = Peek().type;
         if (exprStack.empty()) {
             switch (tokType) {
                 case Token::kIf:
-                    expr = make_shared<If>(ParseIf());
+                    expr = ParseIf();
                     break;
                 case Token::kWhile:
-                    expr = make_shared<While>(ParseWhile());
+                    expr = ParseWhile();
                     break;
                 case Token::kOpenBrace: {
                     int closeBracePos = ReturnValidBraceMatchFor(Pos());
@@ -428,28 +447,28 @@ shared_ptr<Expr> Parser::ParseExpr() {
                         break;
                     }
                     PushScopeEnd(closeBracePos + 1);
-                    expr = make_shared<Block>(ParseBlock());
+                    expr = ParseBlock();
                     PopScopeEnd();
                     MoveTo(closeBracePos + 1);
                     break;
                 }
                 case Token::kLet:
-                    expr = make_shared<Let>(ParseLet());
+                    expr = ParseLet();
                     break;
                 case Token::kCase:
-                    expr = make_shared<Case>(ParseCase());
+                    expr = ParseCase();
                     break;
                 case Token::kNew:
-                    expr = make_shared<New>(ParseNew());
+                    expr = ParseNew();
                     break;
                 case Token::kIsvoid:
-                    expr = make_shared<IsVoid>(ParseIsVoid());
+                    expr = ParseIsVoid();
                     break;
                 case Token::kNegate:
-                    expr = make_shared<Negate>(ParseNegate());
+                    expr = ParseNegate();
                     break;
                 case Token::kNot:
-                    expr = make_shared<Not>(ParseNot());
+                    expr = ParseNot();
                     break;
                 case Token::kOpenParen: {
                     int closeParenPos = ReturnValidParenMatchFor(Pos());
@@ -468,7 +487,7 @@ shared_ptr<Expr> Parser::ParseExpr() {
                 }
                 case Token::ID: {
                     if (MatchMultiple({Token::ID, Token::kAssignment})) {
-                        expr = make_shared<Assign>(ParseAssign());
+                        expr = ParseAssign();
                     } else if (MatchMultiple({Token::ID, Token::kOpenParen})) {
                         int closeParenPos = ReturnValidParenMatchFor(Pos()+1);
                         if (closeParenPos < 0) {
@@ -478,25 +497,25 @@ shared_ptr<Expr> Parser::ParseExpr() {
                             break;
                         }
                         PushScopeEnd(closeParenPos + 1);
-                        expr = make_shared<Call>(ParseCall());
+                        expr = ParseCall();
                         PopScopeEnd();
                         MoveTo(closeParenPos + 1);
                     } else {
-                        expr = make_shared<ID>(ParseID());
+                        expr = ParseID();
                     }
                     break;
                 }
                 case Token::Integer:
-                    expr = make_shared<Integer>(ParseInteger());
+                    expr = ParseInteger();
                     break;
                 case Token::String:
-                    expr = make_shared<String>(ParseString());
+                    expr = ParseString();
                     break;
                 case Token::kTrue:
-                    expr = make_shared<True>(ParseTrue());
+                    expr = ParseTrue();
                     break;
                 case Token::kFalse:
-                    expr = make_shared<False>(ParseFalse());
+                    expr = ParseFalse();
                     break;
                 default:
                     throw runtime_error("invalid Expr type");
@@ -508,28 +527,28 @@ shared_ptr<Expr> Parser::ParseExpr() {
             exprStack.pop();
             switch (tokType) {
                 case Token::kAdd:
-                    expr = make_shared<Add>(ParseAdd(left));
+                    expr = ParseAdd(left);
                     break;
                 case Token::kMinus:
-                    expr = make_shared<Minus>(ParseMinus(left));
+                    expr = ParseMinus(left);
                     break;
                 case Token::kMultiply:
-                    expr = make_shared<Multiply>(ParseMultiply(left));
+                    expr = ParseMultiply(left);
                     break;
                 case Token::kDivide:
-                    expr = make_shared<Divide>(ParseDivide(left));
+                    expr = ParseDivide(left);
                     break;
                 case Token::kLessThan:
-                    expr = make_shared<LessThan>(ParseLessThan(left));
+                    expr = ParseLessThan(left);
                     break;
                 case Token::kLessThanOrEqual:
-                    expr = make_shared<LessThanOrEqual>(ParseLessThanOrEqual(left));
+                    expr = ParseLessThanOrEqual(left);
                     break;
                 case Token::kDot:
-                    expr = make_shared<MethodCall>(ParseMethodCall(left));
+                    expr = ParseMethodCall(left);
                     break;
                 case Token::kEqual:
-                    expr = make_shared<Equal>(ParseEqual(left));
+                    expr = ParseEqual(left);
                     break;
             }
         }
@@ -544,33 +563,35 @@ shared_ptr<Expr> Parser::ParseExpr() {
     return exprStack.top();
 }
 
-If Parser::ParseIf() {
-    If anIf;
+If* Parser::ParseIf() {
+    auto anIf = new If();
 
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kIf), "unexpected call to ParseIf");
     auto expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(anIf.ifExpr, expr, anIf);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, anIf->SetIfExpr(expr), anIf)
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kThen), "expected keyword 'then'", anIf);
     expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(anIf.thenExpr, expr, anIf);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, anIf->SetThenExpr(expr), anIf)
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kElse), "expected keyword 'else'", anIf);
     expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(anIf.elseExpr, expr, anIf);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, anIf->SetElseExpr(expr), anIf)
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kFi), "expected keyword 'fi'", anIf);
     return anIf;
 }
 
-Block Parser::ParseBlock() {
-    Block blk(GetTextInfo());
+Block* Parser::ParseBlock() {
+    auto blk = new Block(GetTextInfo());
 
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kOpenBrace), "unexpected call to ParseBlock");
 
+    vector<Expr*> exprs;
     while (!Empty()) {
         auto expr = ParseExpr();
-        if (checker.Visit(expr)) blk.exprs.emplace_back(expr);
+        if (checker.Visit(expr))
+            exprs.emplace_back(expr);
         else break;
 
         PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' after expression", blk);
@@ -578,76 +599,82 @@ Block Parser::ParseBlock() {
         if (Match(Token::kCloseBrace)) break;
     }
 
+    blk->SetExprs(exprs);
+
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kCloseBrace), "expected '}' in block expression", blk);
     return blk;
 }
 
-While Parser::ParseWhile() {
-    While aWhile;
+While* Parser::ParseWhile() {
+    auto aWhile = new While();
 
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kWhile), "unexpected call to ParseWhile")
     auto expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(aWhile.whileExpr, expr, aWhile);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, aWhile->SetWhileExpr(expr), aWhile)
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kLoop), "expected keyword 'loop'", aWhile);
     expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(aWhile.loopExpr, expr, aWhile);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, aWhile->SetLoopExpr(expr), aWhile)
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kPool), "expected keyword 'pool'", aWhile);
     return aWhile;
 }
 
-Let Parser::ParseLet() {
-    Let let;
+Let* Parser::ParseLet() {
+    auto let = new Let();
 
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kLet), "unexpected call to ParseLet")
 
-    auto parseFormal = [&](){
-        Let::Formal formalDef;
+    auto parseDecl = [&](){
+        auto decl = new Let::Decl();
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), "expected identifier", formalDef);
-        formalDef.name = StringAttr(ConsumeReturn());
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), "expected identifier", decl);
+        decl->SetName(StringAttr(ConsumeReturn()));
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected keyword ':'", formalDef);
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected keyword ':'", decl);
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), "expected type identifier", formalDef);
-        formalDef.type = StringAttr(ConsumeReturn());
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::TypeID), "expected type identifier", decl);
+        decl->SetType(StringAttr(ConsumeReturn()));
 
         if (ConsumeIfMatch(Token::kAssignment)) {
             auto expr = ParseExpr();
-            PARSER_CHECK_ASSGIN_RETURN(formalDef.expr, expr, formalDef);
+            PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, decl->SetExpr(expr), decl);
         }
 
-        return formalDef;
+        return decl;
     };
 
+    vector<Let::Decl*> decls;
     do {
-        auto form = parseFormal();
-        if (checker.Visit(form)) let.formals.emplace_back(make_shared<Let::Formal>(form));
+        auto decl = parseDecl();
+        if (checker.Visit(*decl))
+            decls.emplace_back(decl);
         else return let;
 
     } while (ConsumeIfMatch(Token::kComma));
+    let->SetDecls(decls);
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kIn), "expected 'in' in let expression", let);
 
     auto expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(let.expr, expr, let);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, let->SetExpr(expr), let);
     return let;
 }
 
-Case Parser::ParseCase() {
-    Case aCase;
+Case* Parser::ParseCase() {
+    auto aCase = new Case();
 
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kCase), "expected keyword 'case'")
     auto expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(aCase.expr, expr, aCase);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, aCase->SetExpr(expr), aCase);
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kOf), "expected 'of' in case expression", aCase);
 
     auto parseBranch = [&](){
-        Case::Branch branch;
+        auto branch = new Case::Branch();
 
-        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), branch.id = StringAttr(ConsumeReturn()),
+        PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID),
+            branch->SetId(StringAttr(ConsumeReturn())),
             "expected identifier", branch);
 
         PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon), "expected ':'", branch);
@@ -656,151 +683,166 @@ Case Parser::ParseCase() {
             Match(Token::TypeID),
             PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
                 Peek().val != "SELF_TYPE",
-                branch.type = StringAttr(ConsumeReturn()),
+                branch->SetType(StringAttr(ConsumeReturn())),
                 "'SELF_TYPE' cannot be used in case expression", branch),
             "expected type identifier", branch);
 
         PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kEval), "expected '=>'", branch);
 
         auto expr = ParseExpr();
-        PARSER_CHECK_ASSGIN_RETURN(branch.expr, expr, branch);
+        PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, branch->SetExpr(expr), branch);
 
         PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';'", branch);
         return branch;
     };
 
+    vector<Case::Branch*> branches;
     do {
         auto branch = parseBranch();
-        if (checker.Visit(branch)) aCase.branches.emplace_back(make_shared<Case::Branch>(branch));
-        else return aCase;
+        if (checker.Visit(*branch))
+            branches.emplace_back(branch);
+        else
+            return aCase;
     } while (!ConsumeIfMatch(Token::kEsac));
+
+    aCase->SetBranches(branches);
 
     return aCase;
 }
 
-ID Parser::ParseID() {
-    ID id;
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), id.name = StringAttr(ConsumeReturn()),
+ID* Parser::ParseID() {
+    auto id = new ID();
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID),
+        id->SetName(StringAttr(ConsumeReturn())),
         "expected identifier", id);
     return id;
 }
 
-Assign Parser::ParseAssign() {
-    Assign assign;
+Assign* Parser::ParseAssign() {
+    auto assign = new Assign();
+
     auto id = ParseID();
-    if (checker.Visit(id)) assign.id = make_shared<ID>(id);
-    else return assign;
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(id, assign->SetId(id), assign)
+
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kAssignment), "unexpected call to ParseAssign")
+
     auto expr = ParseExpr();
-    PARSER_CHECK_ASSGIN_RETURN(assign.expr, expr, assign);
+    PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, assign->SetExpr(expr), assign);
+
     return assign;
 }
 
-Call Parser::ParseCall() {
-    Call call;
-    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID), call.id = make_shared<ID>(ParseID()),
+Call* Parser::ParseCall() {
+    auto call = new Call();
+    PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::ID),
+        call->SetId(ParseID()),
         "expected identifier in call", call);
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenParen), "expected '(' in call expression", call);
+    PARSER_IF_FALSE_EMIT_DIAG_RETURN(Match(Token::kOpenParen), "expected '(' in call expression", call)
     int end = ReturnValidParenMatchFor(Pos());
     PARSER_IF_FALSE_EMIT_DIAG_RETURN((end >= 0), "expected ')' in call expression", call);
     Consume();
 
     PushScopeEnd(end);
+    vector<Expr*> args;
     while (!Empty()) {
         // note: if parse expr failed, should emplace nullptr so that checker can decide its invalidity
-        if(!call.args.empty() && !ConsumeIfMatch(Token::kComma)) {
+        if(!args.empty() && !ConsumeIfMatch(Token::kComma)) {
             diag.EmitError(GetTextInfo(), "expected ',' after expression");
             break;
         }
         auto expr = ParseExpr();
-        if (checker.Visit(expr)) call.args.emplace_back(expr);
+        if (checker.Visit(expr))
+            args.emplace_back(expr);
         else break;
     }
+    call->SetArgs(args);
     PopScopeEnd();
     MoveTo(end+1);
     return call;
 }
 
-New Parser::ParseNew() {
-    New aNew;
+New* Parser::ParseNew() {
+    auto aNew = new New();
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kNew), "unexpected call to ParseNew");
 
-    if (!ConsumeIfNotMatch(Token::TypeID)) aNew.type = StringAttr(ConsumeReturn());
-    else diag.EmitError(GetTextInfo(), "expected type identifier in new expression");
+    if (!ConsumeIfNotMatch(Token::TypeID))
+        aNew->SetType(StringAttr(ConsumeReturn()));
+    else
+        diag.EmitError(GetTextInfo(), "expected type identifier in new expression");
 
     return aNew;
 }
 
-repr::Integer Parser::ParseInteger() {
-    PARSER_IF_FALSE_EXCEPTION(Match(Token::Integer), "unexpected call to ParseInteger");
-    return Integer(ConsumeReturn());
+repr::Integer* Parser::ParseInteger() {
+    assert(Match(Token::Integer) &&"unexpected call to ParseInteger");
+    return new Integer(ConsumeReturn());
 }
 
-repr::String Parser::ParseString() {
-    PARSER_IF_FALSE_EXCEPTION(Match(Token::String), "unexpected call to ParseString");
-    return String(ConsumeReturn());
+repr::String* Parser::ParseString() {
+    assert(Match(Token::String) &&"unexpected call to ParseString");
+    return new String(ConsumeReturn());
 }
 
-repr::True Parser::ParseTrue() {
-    PARSER_IF_FALSE_EXCEPTION(Match(Token::kTrue), "unexpected call to ParseTrue");
-    return True(ConsumeReturn().textInfo);
+repr::True* Parser::ParseTrue() {
+    assert(Match(Token::kTrue) && "unexpected call to ParseTrue");
+    return new True(ConsumeReturn().textInfo);
 }
 
-repr::False Parser::ParseFalse() {
-    PARSER_IF_FALSE_EXCEPTION(Match(Token::kFalse), "unexpected call to ParseFalse");
-    return False(ConsumeReturn().textInfo);
+repr::False* Parser::ParseFalse() {
+    assert(Match(Token::kFalse) &&"unexpected call to ParseFalse");
+    return new False(ConsumeReturn().textInfo);
 }
 
-IsVoid Parser::ParseIsVoid() {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kIsvoid), "unexpected call to ParseIsVoid");
-    return IsVoid(ParseExpr());
+IsVoid* Parser::ParseIsVoid() {
+    assert(ConsumeIfMatch(Token::kIsvoid) && "unexpected call to ParseIsVoid");
+    return new IsVoid(ParseExpr());
 }
 
-Negate Parser::ParseNegate() {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kNegate), "unexpected call to ParseNegate");
-    return Negate(ParseExpr());
+Negate* Parser::ParseNegate() {
+    assert(ConsumeIfMatch(Token::kNegate) && "unexpected call to ParseNegate");
+    return new Negate(ParseExpr());
 }
 
-Not Parser::ParseNot() {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kNot), "unexpected call to ParseNot");
-    return Not(ParseExpr());
+Not* Parser::ParseNot() {
+    assert(ConsumeIfMatch(Token::kNot) && "unexpected call to ParseNot");
+    return new Not(ParseExpr());
 }
 
-Add Parser::ParseAdd(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kAdd), "unexpected call to ParseAdd");
-    return Add(move(left), ParseExpr());
+Add*Parser::ParseAdd(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kAdd) &&"unexpected call to ParseAdd");
+    return new Add(left, ParseExpr());
 }
 
-Minus Parser::ParseMinus(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kMinus), "unexpected call to ParseMinus");
-    return Minus(move(left), ParseExpr());
+Minus* Parser::ParseMinus(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kMinus) && "unexpected call to ParseMinus");
+    return new Minus(left, ParseExpr());
 }
 
-Multiply Parser::ParseMultiply(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kMultiply), "unexpected call to ParseMultiply");
-    return Multiply(move(left), ParseExpr());
+Multiply* Parser::ParseMultiply(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kMultiply) && "unexpected call to ParseMultiply");
+    return new Multiply(left, ParseExpr());
 }
-Divide Parser::ParseDivide(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kDivide), "unexpected call to ParseDivide");
-    return Divide(move(left), ParseExpr());
-}
-
-LessThan Parser::ParseLessThan(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kLessThan), "unexpected call to ParseLessThan");
-    return LessThan(move(left), ParseExpr());
-}
-LessThanOrEqual Parser::ParseLessThanOrEqual(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kLessThanOrEqual), "unexpected call to ParseLessThanOrEqual");
-    return LessThanOrEqual(move(left), ParseExpr());
+Divide* Parser::ParseDivide(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kDivide) &&"unexpected call to ParseDivide");
+    return new Divide(left, ParseExpr());
 }
 
-Equal Parser::ParseEqual(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kEqual), "unexpected call to ParseEqual");
-    return Equal(move(left), ParseExpr());
+LessThan* Parser::ParseLessThan(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kLessThan) && "unexpected call to ParseLessThan");
+    return new LessThan(left, ParseExpr());
+}
+LessThanOrEqual* Parser::ParseLessThanOrEqual(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kLessThanOrEqual) &&"unexpected call to ParseLessThanOrEqual");
+    return new LessThanOrEqual(left, ParseExpr());
 }
 
-MethodCall Parser::ParseMethodCall(shared_ptr<repr::Expr> left) {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kDot), "unexpected call to ParseMethodCall");
-    return MethodCall(move(left), make_shared<Call>(ParseCall()));
+Equal* Parser::ParseEqual(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kEqual) &&"unexpected call to ParseEqual");
+    return new Equal(left, ParseExpr());
+}
+
+MethodCall* Parser::ParseMethodCall(repr::Expr* left) {
+    assert(ConsumeIfMatch(Token::kDot) && "unexpected call to ParseMethodCall");
+    return new MethodCall(left, ParseCall());
 }
