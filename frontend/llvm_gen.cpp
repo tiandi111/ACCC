@@ -324,6 +324,11 @@ llvm::Function* LLVMGen::CreateNewOperatorBody(Class &cls) {
     return function;
 }
 
+llvm::Value* LLVMGen::CreateNewOperatorCall(const string& type) {
+    CreateNewOperatorDeclIfNx(type);
+    return builder->CreateCall(module->getFunction(type), {});
+}
+
 void LLVMGen::DumpTextualIR(const string &filename) {
     std::error_code ec;
     raw_fd_ostream dest(filename, ec, sys::fs::OF_Text);
@@ -398,6 +403,8 @@ Value * LLVMGen::Visit(FuncFeature &feat) {
             function =  CreateFunctionMain();
             BasicBlock* bb = BasicBlock::Create(*context, "entry", function);
             builder->SetInsertPoint(bb);
+            auto selfVar = CreateNewOperatorCall("Main");
+            llvmStable.InsertSelfVar(selfVar);
             builder->Insert(Visit(*feat.GetExpr()));
             builder->CreateRetVoid();
 
@@ -552,11 +559,17 @@ Value* LLVMGen::Visit_(repr::If& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::LessThanOrEqual& expr) {
-    return builder->CreateICmp(CmpInst::ICMP_SLE, Visit(*expr.GetLeft()), Visit(*expr.GetRight()));
+    return builder->CreateICmp(
+        CmpInst::ICMP_SLE,
+        Visit(*expr.GetLeft()),
+        Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::LessThan& expr) {
-    return builder->CreateICmp(CmpInst::ICMP_SLT, Visit(*expr.GetLeft()), Visit(*expr.GetRight()));
+    return builder->CreateICmp(
+        CmpInst::ICMP_SLT,
+        Visit(*expr.GetLeft()),
+        Visit(*expr.GetRight()));
 }
 
 Value* LLVMGen::Visit_(repr::Let& expr) {
@@ -605,9 +618,7 @@ Value* LLVMGen::Visit_(repr::Negate& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::New& expr) {
-    auto type = expr.GetType().Value();
-    auto newOp = module->getFunction(type);
-    return builder->CreateCall(newOp, {});
+    return CreateNewOperatorCall(expr.GetType().Value());
 }
 
 Value* LLVMGen::Visit_(repr::Not& expr) {

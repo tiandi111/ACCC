@@ -100,6 +100,7 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     llvm::Value* DefaultNewOperator(const string& type);
     llvm::Function* CreateNewOperatorDeclIfNx(const string& type);
     llvm::Function* CreateNewOperatorBody(Class& cls);
+    llvm::Value* CreateNewOperatorCall(const string& type);
 
 public:
     LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& stable);

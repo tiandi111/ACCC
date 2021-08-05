@@ -49,21 +49,26 @@ class Pass {
     Pass() {}
     virtual ~Pass() {};
     virtual void Required() {};
-    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) = 0;
+    virtual repr::Program* operator()(repr::Program* prog, PassContext& ctx) = 0;
 };
 
 class ProgramPass : public Pass {
   public:
-    virtual repr::Program operator()(repr::Program& prog, PassContext& ctx) { return prog; };
+    virtual repr::Program* operator()(repr::Program* prog, PassContext& ctx) {
+        return prog;
+    };
 };
 
 class ClassPass : public Pass {
   public:
-    repr::Program operator()(repr::Program& prog, PassContext& ctx) final {
-        for (auto& cls : prog.GetClasses()) operator()(*cls, ctx);
+    repr::Program* operator()(repr::Program* prog, PassContext& ctx) final {
+        for (auto& cls : prog->GetClasses())
+            operator()(cls, ctx);
         return prog;
     }
-    virtual repr::Class operator()(repr::Class& cls, PassContext& ctx) { return cls; }
+    virtual repr::Class* operator()(repr::Class* cls, PassContext& ctx) {
+        return cls;
+    }
 };
 
 class Sequential : public Pass {
@@ -72,7 +77,7 @@ class Sequential : public Pass {
 
   public:
     Sequential (vector<shared_ptr<Pass>> _passes) : passes(move(_passes)) {}
-    repr::Program operator()(repr::Program& prog, PassContext& ctx) {
+    repr::Program* operator()(repr::Program* prog, PassContext& ctx) {
         for (auto& pass : passes) {
             if (ctx.diag.FatalOccurred()) break;
             (*pass)(prog, ctx);
@@ -117,7 +122,7 @@ class PassManager {
         GetPassManager().dependency.emplace_back(make_pair(PassID(Requirer), PassID(Requiree)));
     }
 
-    static void Run(repr::Program& prog, PassContext& ctx);
+    static void Run(repr::Program* prog, PassContext& ctx);
 
     static void Refresh();
 

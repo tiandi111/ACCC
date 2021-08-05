@@ -11,7 +11,7 @@
 
 using namespace cool::pass;
 
-void PassManager::Run(repr::Program& prog, PassContext& ctx) {
+void PassManager::Run(repr::Program* prog, PassContext& ctx) {
     auto& pm = GetPassManager();
     if (!pm.ready) {
         for (auto& edge : pm.dependency) {

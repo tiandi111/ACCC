@@ -22,36 +22,36 @@ using namespace cool;
 using namespace visitor;
 using namespace adt;
 
-repr::Program ana::InstallBuiltin::operator()(repr::Program& prog, pass::PassContext& ctx) {
+repr::Program* ana::InstallBuiltin::operator()(repr::Program* prog, pass::PassContext& ctx) {
 
     for (auto& cls : builtin::NewBuiltinClasses()) {
-        if (!prog.AddClass(cls)) {
-            ctx.diag.EmitError(prog.GetClassPtr(cls->GetName().Value())->GetTextInfo(),
+        if (!prog->AddClass(cls)) {
+            ctx.diag.EmitError(prog->GetClassPtr(cls->GetName().Value())->GetTextInfo(),
                 "built-in class '" + cls->GetName().Value() + "' cannot be redefined");
-            prog.DeleteClass(cls->GetName().Value());
-            assert(prog.AddClass(cls));
+            prog->DeleteClass(cls->GetName().Value());
+            assert(prog->AddClass(cls));
         }
     }
 
-    for (auto& cls : prog.GetClasses()) {
+    for (auto& cls : prog->GetClasses()) {
         if (cls->GetParent().Empty() && cls->GetName().Value() != "Object")
             cls->SetParent({"Object", cls->GetParent().TextInfo()});
     }
     return prog;
 }
 
-repr::Class ana::CheckBuiltinInheritance::operator()(repr::Class& cls, pass::PassContext& ctx) {
+repr::Class* ana::CheckBuiltinInheritance::operator()(repr::Class* cls, pass::PassContext& ctx) {
     using namespace builtin;
-    if (IsBuiltinClass(cls.GetParent().Value()) && !IsInheritable(cls.GetParent().Value())) {
-        ctx.diag.EmitError(cls.GetParent().TextInfo(),
-            "cannot inherit built-in class '" + cls.GetParent().Value() + "'");
-        cls.SetParent({"Object", cls.GetParent().TextInfo()}); //
+    if (IsBuiltinClass(cls->GetParent().Value()) && !IsInheritable(cls->GetParent().Value())) {
+        ctx.diag.EmitError(cls->GetParent().TextInfo(),
+            "cannot inherit built-in class '" + cls->GetParent().Value() + "'");
+        cls->SetParent({"Object", cls->GetParent().TextInfo()}); //
     }
     return cls;
 }
 
-repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::PassContext& ctx) {
-    type::TypeAdvisor typeAdvisor(prog.GetClassPtr("Object"));
+repr::Program* ana::BuildInheritanceTree::operator()(repr::Program* prog, pass::PassContext& ctx) {
+    type::TypeAdvisor typeAdvisor(prog->GetClassPtr("Object"));
 
     vector<repr::Class*> stack;
 
@@ -72,7 +72,7 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
         }
     };
 
-    for (auto cls : prog.GetClasses()) {
+    for (auto cls : prog->GetClasses()) {
         unordered_set<string> visiting;
         while (cls) {
             if (typeAdvisor.Contains(cls->GetName().Value()))
@@ -83,7 +83,7 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
                 return prog;
             }
             visiting.insert(cls->GetName().Value());
-            cls = prog.GetClassPtr(cls->GetParent().Value());
+            cls = prog->GetClassPtr(cls->GetParent().Value());
         }
         add(stack, typeAdvisor);
     }
@@ -93,11 +93,11 @@ repr::Program ana::BuildInheritanceTree::operator()(repr::Program& prog, pass::P
     return prog;
 }
 
-repr::Class ana::CheckInheritedAttributes::operator()(repr::Class& cls, pass::PassContext& ctx) {
+repr::Class* ana::CheckInheritedAttributes::operator()(repr::Class* cls, pass::PassContext& ctx) {
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
 
     auto check = [&](repr::Class* ancestor) {
-        for (auto& field : cls.GetFieldFeatures()) {
+        for (auto& field : cls->GetFieldFeatures()) {
             if (ancestor->GetFieldFeaturePtr(field->GetName().Value())) {
                 ctx.diag.EmitError(field->GetTextInfo(),
                     "inherited attribute '" + field->GetName().Value() + "' cannot be redefined");
@@ -106,20 +106,20 @@ repr::Class ana::CheckInheritedAttributes::operator()(repr::Class& cls, pass::Pa
         return false;
     };
 
-    typeAdvisor.BottomUpVisit(cls.GetParent().Value(), check);
+    typeAdvisor.BottomUpVisit(cls->GetParent().Value(), check);
     return cls;
 }
 
-repr::Class ana::AddInheritedAttributes::operator()(repr::Class& cls, pass::PassContext& ctx) {
+repr::Class* ana::AddInheritedAttributes::operator()(repr::Class* cls, pass::PassContext& ctx) {
     using namespace repr;
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
 
-    vector<FieldFeature*> feats = cls.GetFieldFeatures();
+    vector<FieldFeature*> feats = cls->GetFieldFeatures();
     for (auto& feat : feats)
-        cls.DeleteFieldFeature(feat->GetName().Value());
+        cls->DeleteFieldFeature(feat->GetName().Value());
 
     stack<Class*> stack;
-    Class* cur = typeAdvisor.GetTypeRepr(cls.GetParent().Value());
+    Class* cur = typeAdvisor.GetTypeRepr(cls->GetParent().Value());
     while (cur) {
         stack.push(cur);
         cur = typeAdvisor.GetTypeRepr(cur->GetParent().Value());
@@ -127,16 +127,16 @@ repr::Class ana::AddInheritedAttributes::operator()(repr::Class& cls, pass::Pass
 
     while (!stack.empty()) {
         for (auto& field : stack.top()->GetFieldFeatures())
-            cls.AddFieldFeature(field->Clone());
+            cls->AddFieldFeature(field->Clone());
         stack.pop();
     }
 
     for(auto& feat : feats)
-        cls.AddFieldFeature(feat);
+        cls->AddFieldFeature(feat);
     return cls;
 }
 
-repr::Class ana::CheckInheritedMethods::operator()(repr::Class& cls, pass::PassContext& ctx) {
+repr::Class* ana::CheckInheritedMethods::operator()(repr::Class* cls, pass::PassContext& ctx) {
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
 
     auto valid = [](repr::FuncFeature& a, repr::FuncFeature& b) {
@@ -152,7 +152,7 @@ repr::Class ana::CheckInheritedMethods::operator()(repr::Class& cls, pass::PassC
     };
 
     auto check = [&](repr::Class* ancestor) {
-        for (auto& func : cls.GetFuncFeatures()) {
+        for (auto& func : cls->GetFuncFeatures()) {
 
             if (ancestor->GetFuncFeaturePtr(func->GetName().Value()) &&
                 !valid(*func, *(ancestor->GetFuncFeaturePtr(func->GetName().Value())))) {
@@ -164,24 +164,24 @@ repr::Class ana::CheckInheritedMethods::operator()(repr::Class& cls, pass::PassC
         return false;
     };
 
-    typeAdvisor.BottomUpVisit(cls.GetParent().Value(), check);
+    typeAdvisor.BottomUpVisit(cls->GetParent().Value(), check);
     return cls;
 }
 
-repr::Class ana::AddInheritedMethods::operator()(repr::Class& cls, pass::PassContext& ctx) {
+repr::Class* ana::AddInheritedMethods::operator()(repr::Class* cls, pass::PassContext& ctx) {
     auto& typeAdvisor = *ctx.Get<type::TypeAdvisor>("type_advisor");
 
-    auto cur = typeAdvisor.GetTypeRepr(cls.GetParent().Value());
+    auto cur = typeAdvisor.GetTypeRepr(cls->GetParent().Value());
     while (cur) {
         for (auto& func : cur->GetFuncFeatures())
-            cls.AddFuncFeature(func->Clone());
+            cls->AddFuncFeature(func->Clone());
         cur = typeAdvisor.GetTypeRepr(cur->GetParent().Value());
     }
 
     return cls;
 }
 
-repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassContext& ctx) {
+repr::Program* ana::InitSymbolTable::operator()(repr::Program* prog, pass::PassContext& ctx) {
     using namespace visitor;
     using namespace attr;
 
@@ -335,12 +335,12 @@ repr::Program ana::InitSymbolTable::operator()(repr::Program& prog, pass::PassCo
     };
 
     Visitor vis;
-    vis.Visit(prog);
+    vis.Visit(*prog);
     ctx.Set<ScopedTableSpecializer<SymbolTable>>("symbol_table", vis.stable);
     return prog;
 }
 
-repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassContext& ctx) {
+repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassContext& ctx) {
     using namespace builtin;
     using namespace tok;
 
@@ -625,11 +625,11 @@ repr::Program ana::TypeChecking::operator()(repr::Program& prog, pass::PassConte
     auto typeAdvisor = ctx.Get<type::TypeAdvisor>("type_advisor");
 
     Visitor vis(ctx, *stable, *typeAdvisor);
-    vis.Visit(prog);
+    vis.Visit(*prog);
     return prog;
 }
 
-repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::PassContext& ctx) {
+repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::PassContext& ctx) {
 
     class Visitor : public ProgramVisitor<void>, ClassVisitor<void>, FuncFeatureVisitor<void>,
         FieldFeatureVisitor<void>, FormalVisitor<void>, ExprVisitor<void> {
@@ -647,14 +647,16 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
 
         void Visit(repr::Class &cls) {
             ENTER_SCOPE_GUARD(stable, {
-                for (auto& feat : cls.GetFieldFeatures()) Visit(*feat);
-                for (auto& feat : cls.GetFuncFeatures()) Visit(*feat);
+                for (auto& feat : cls.GetFieldFeatures())
+                    Visit(*feat);
+                for (auto& feat : cls.GetFuncFeatures())
+                    Visit(*feat);
             })
         }
 
         void Visit(repr::FieldFeature &feat) {
             if (feat.GetType().Value() == "SELF_TYPE")
-                feat.GetType().Value() = stable.GetClass()->GetName().Value();
+                feat.SetType({stable.GetClass()->GetName().Value(), feat.GetType().TextInfo()});
             if (feat.GetExpr())
                 Visit(*feat.GetExpr());
         }
@@ -662,18 +664,20 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
         void Visit(repr::FuncFeature &feat) {
             ENTER_SCOPE_GUARD(stable, {
                 if (feat.GetType().Value() == "SELF_TYPE")
-                    feat.GetType().Value() = stable.GetClass()->GetName().Value();
+                    feat.SetType({stable.GetClass()->GetName().Value(), feat.GetType().TextInfo()});
                 Visit(*feat.GetExpr());
             })
         }
 
         void Visit(repr::Formal &form) {}
 
-        void Visit(repr::Expr& expr) { ExprVisitor<void>::Visit(expr); }
+        void Visit(repr::Expr& expr) {
+            ExprVisitor<void>::Visit(expr);
+        }
 
         void Visit_(repr::LinkBuiltin& expr) {
             if (expr.GetType() == "SELF_TYPE")
-                expr.GetType() = stable.GetClass()->GetName().Value();
+                expr.SetType(stable.GetClass()->GetName().Value());
         }
 
         void Visit_(repr::Assign& expr) { Visit(*expr.GetExpr()); }
@@ -774,7 +778,7 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
 
         void Visit_(repr::New& expr) {
             if (expr.GetType().Value() == "SELF_TYPE")
-                expr.GetType().Value() = stable.GetClass()->GetName().Value();
+                expr.SetType({stable.GetClass()->GetName().Value(), expr.GetType().TextInfo()});
         }
 
         void Visit_(repr::Not& expr) { Visit(*expr.GetExpr()); }
@@ -793,6 +797,6 @@ repr::Program ana::EliminateSelfType::operator()(repr::Program& prog, pass::Pass
 
     auto stable = ctx.Get<ScopedTableSpecializer<SymbolTable>>("symbol_table");
     Visitor vis(*stable);
-    vis.Visit(prog);
+    vis.Visit(*prog);
     return prog;
 }

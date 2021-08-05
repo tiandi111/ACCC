@@ -99,6 +99,11 @@ class IntAttr : public Attr {
     Type* Get##Name() { return Field; }\
     void Set##Name(Type* _##Field) { Field = _##Field; }
 
+#define COOL_REPR_BASE_CONSTRUCTOR(Type)\
+    Type() = default;\
+    Type(const Type&) = delete;\
+    Type& operator=(const Type&) = delete;\
+
 // note:
 //  Templates are all about the compiler generating code at compile-time.
 //  Virtual functions are all about the run-time system figuring out which function to call at run-time.
@@ -127,9 +132,7 @@ class Formal : public Repr {
     StringAttr type;
 
   public:
-    Formal() = default;
-    Formal(const Formal&) = delete;
-    Formal& operator=(const Formal&) = delete;
+    COOL_REPR_BASE_CONSTRUCTOR(Formal)
 
     Formal(const StringAttr& _name, const StringAttr& _type)
     : name(_name), type(_type) {}
@@ -149,14 +152,18 @@ class LinkBuiltin : public Expr {
     vector<string> params;
 
   public:
-    LinkBuiltin() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(LinkBuiltin)
 
     LinkBuiltin(const string& _name, const string& _type, vector<string> _params)
     : name(_name), type(_type), params(move(_params)) {}
 
-    LinkBuiltin* Clone() { return new LinkBuiltin(name, type, params); }
+    LinkBuiltin* Clone() {
+        return new LinkBuiltin(name, type, params);
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return diag::TextInfo{}; }
+    inline diag::TextInfo GetTextInfo() const final {
+        return diag::TextInfo{};
+    }
 
     COOL_REPR_SETTER_GETTER(string, Name, name)
     COOL_REPR_SETTER_GETTER(string, Type, type)
@@ -168,12 +175,17 @@ class ID : public Expr {
     StringAttr name;
 
   public:
-    ID() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(ID)
+
     ID(const StringAttr& _name) : name(_name) {}
 
-    ID* Clone() { return new ID(name); }
+    ID* Clone() {
+        return new ID(name);
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
+    inline diag::TextInfo GetTextInfo() const final {
+        return name.TextInfo();
+    }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Name, name)
 };
@@ -184,9 +196,7 @@ class Assign : public Expr {
     Expr* expr;
 
   public:
-    Assign() = default;
-    Assign(const Assign&) = delete;
-    Assign& operator=(const Assign&) = delete;
+    COOL_REPR_BASE_CONSTRUCTOR(Assign)
 
     Assign(ID* _id, Expr* _expr) : id(_id), expr(_expr) {}
 
@@ -207,7 +217,7 @@ class Call : public Expr {
     FuncFeature* link;
 
   public:
-    Call() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(Call)
 
     Call(ID* _id, vector<Expr*> _args, FuncFeature* _link) : id(_id), args(_args), link(_link) {}
 
@@ -227,7 +237,7 @@ class If : public Expr {
     Expr* elseExpr;
 
 public:
-    If() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(If)
 
     If(Expr* _ifExpr, Expr* _thenExpr, Expr* _elseExpr)
     : ifExpr(_ifExpr), thenExpr(_thenExpr), elseExpr(_elseExpr) {}
@@ -247,6 +257,8 @@ class Block : public Expr {
     vector<Expr*> exprs;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Block)
+
     Block(diag::TextInfo _textInfo, vector<Expr*> _exprs = {})
     : textInfo(_textInfo), exprs(_exprs) {}
 
@@ -263,7 +275,8 @@ class While : public Expr {
     Expr* loopExpr;
 
   public:
-    While() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(While)
+
     While(Expr* _whileExpr, Expr* _loopExpr)
     : whileExpr(_whileExpr), loopExpr(_loopExpr) {}
 
@@ -284,9 +297,7 @@ class Let : public Expr {
         Expr* expr;
 
       public:
-        Decl() = default;
-        Decl(const Decl&) = delete;
-        Decl& operator=(const Decl&) = delete;
+        COOL_REPR_BASE_CONSTRUCTOR(Decl)
 
         Decl(const StringAttr& _name, const StringAttr& _type, Expr* _expr)
             : name(_name), type(_type), expr(_expr) {}
@@ -305,7 +316,8 @@ class Let : public Expr {
     Expr* expr;
 
   public:
-    Let() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(Let)
+
     Let(vector<Let::Decl*> _decls, Expr* _expr) : decls(_decls), expr(_expr) {}
 
     Let* Clone() { return new Let(decls, expr->Clone()); }
@@ -325,7 +337,8 @@ class Case : public Expr {
         Expr* expr;
 
       public:
-        Branch() = default;
+        COOL_REPR_BASE_CONSTRUCTOR(Branch)
+
         Branch(const StringAttr& _id, const StringAttr& _type, Expr* _expr)
         : id(_id), type(_type), expr(_expr) {}
 
@@ -343,7 +356,8 @@ class Case : public Expr {
     vector<Branch*> branches;
 
   public:
-    Case() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(Case)
+
     Case(Expr* _expr, vector<Branch*> _branches) : expr(_expr), branches(_branches) {}
 
     Case* Clone() {
@@ -364,7 +378,8 @@ class New : public Expr {
     StringAttr type;
 
   public:
-    New() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(New)
+
     New(const StringAttr& _type) : type(_type) {}
 
     New* Clone() { return new New(type); }
@@ -379,6 +394,8 @@ class Unary : public Expr {
     Expr* expr;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Unary)
+
     Unary(Expr* _expr) : expr(_expr) {}
 
     Unary* Clone() { return new Unary(expr->Clone()); }
@@ -390,6 +407,8 @@ class Unary : public Expr {
 
 class IsVoid : public Unary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(IsVoid)
+
     IsVoid(Expr* _expr) : Unary(_expr) {}
 
     IsVoid* Clone() { return new IsVoid(expr->Clone()); }
@@ -397,6 +416,8 @@ class IsVoid : public Unary {
 
 class Negate : public Unary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Negate)
+
     Negate(Expr* _expr) : Unary(_expr) {}
 
     Negate* Clone() { return new Negate(expr->Clone()); }
@@ -404,6 +425,8 @@ class Negate : public Unary {
 
 struct Not : public Unary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Not)
+
     Not(Expr* _expr) : Unary(_expr) {}
 
     Not* Clone() { return new Not(expr->Clone()); }
@@ -415,6 +438,8 @@ class Binary : public Expr {
     Expr* right;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Binary)
+
     Binary(Expr* _left, Expr* _right) : left(_left), right(_right) {}
 
     Binary* Clone() { return new Binary(left->Clone(), right->Clone()); }
@@ -427,6 +452,8 @@ class Binary : public Expr {
 
 class Add : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Add)
+
     Add(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     Add* Clone() { return new Add(left->Clone(), right->Clone()); }
@@ -434,6 +461,8 @@ class Add : public Binary {
 
 class Minus : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Minus)
+
     Minus(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     Minus* Clone() { return new Minus(left->Clone(), right->Clone()); }
@@ -441,6 +470,8 @@ class Minus : public Binary {
 
 class Multiply : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Multiply)
+
     Multiply(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     Multiply* Clone() { return new Multiply(left->Clone(), right->Clone()); }
@@ -448,6 +479,8 @@ class Multiply : public Binary {
 
 class Divide : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Divide)
+
     Divide(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     Divide* Clone() { return new Divide(left->Clone(), right->Clone()); }
@@ -455,6 +488,8 @@ class Divide : public Binary {
 
 class LessThan : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(LessThan)
+
     LessThan(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     LessThan* Clone() { return new LessThan(left->Clone(), right->Clone()); }
@@ -462,6 +497,8 @@ class LessThan : public Binary {
 
 class LessThanOrEqual : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(LessThanOrEqual)
+
     LessThanOrEqual(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     LessThanOrEqual* Clone() { return new LessThanOrEqual(left->Clone(), right->Clone()); }
@@ -469,6 +506,8 @@ class LessThanOrEqual : public Binary {
 
 class Equal : public Binary {
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Equal)
+
     Equal(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     Equal* Clone() { return new Equal(left->Clone(), right->Clone()); }
@@ -479,6 +518,8 @@ class MethodCall : public Binary {
     string type;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(MethodCall)
+
     MethodCall(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
     MethodCall* Clone() { return new MethodCall(left->Clone(), right->Clone()); }
@@ -491,6 +532,8 @@ class Integer : public Expr {
     IntAttr val;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Integer)
+
     Integer(const IntAttr& _val) : val(_val) {}
 
     Integer* Clone() { return new Integer(val); }
@@ -507,6 +550,8 @@ class String : public Expr {
     StringAttr val;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(String)
+
     String(const StringAttr& _val) : val(_val) {}
 
     String* Clone() { return new String(val); }
@@ -523,6 +568,8 @@ class True : public Expr {
     diag::TextInfo textInfo;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(True)
+
     True(const diag::TextInfo& _textInfo) : textInfo(_textInfo) {}
 
     True* Clone() { return new True(textInfo); }
@@ -535,6 +582,8 @@ class False : public Expr {
     diag::TextInfo textInfo;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(False)
+
     False(const diag::TextInfo& _textInfo) : textInfo(_textInfo) {}
 
     False* Clone() { return new False(textInfo); }
@@ -550,7 +599,8 @@ class FuncFeature : Repr {
     vector<Formal*> args;
 
   public:
-    FuncFeature() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(FuncFeature)
+
     FuncFeature(const StringAttr& _name, const StringAttr& _type, Expr* _expr, vector<Formal*> _args = {})
     : name(_name), type(_type), expr(_expr), args(_args) {}
 
@@ -558,7 +608,7 @@ class FuncFeature : Repr {
         vector<Formal*> _args;
         for (auto& arg : args)
             _args.emplace_back(arg->Clone());
-        return new FuncFeature(name, type, expr, _args);
+        return new FuncFeature(name, type, expr->Clone(), _args);
     }
 
     inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
@@ -576,7 +626,8 @@ class FieldFeature : Repr {
     Expr* expr;
 
   public:
-    FieldFeature() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(FieldFeature)
+
     FieldFeature(const StringAttr& _name, const StringAttr& _type, Expr* _expr)
     : name(_name), type(_type), expr(_expr) {}
 
@@ -599,7 +650,7 @@ class Class : Repr {
     unordered_map<string, FieldFeature*> fieldMap;
 
   public:
-    Class() = default;
+    COOL_REPR_BASE_CONSTRUCTOR(Class)
 
     Class(const StringAttr& _name, const StringAttr& _parent, vector<FuncFeature*> _funcs = {},
         vector<FieldFeature*> _fields = {})
@@ -680,6 +731,8 @@ class Program : public Repr {
     unordered_map<string, Class*> classMap;
 
   public:
+    COOL_REPR_BASE_CONSTRUCTOR(Program)
+
     Program(const diag::TextInfo& _textInfo, vector<Class*> _classVec = {})
     : textInfo(_textInfo), classVec(_classVec) {
         for (auto& cls : classVec)

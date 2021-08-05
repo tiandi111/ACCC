@@ -40,7 +40,7 @@ int main() {
     PassContext passContext(diagnosis);
     PassManager::Refresh();
     PassManager::Register<SemanticChecking>();
-    PassManager::Run(*prog, passContext);
+    PassManager::Run(prog, passContext);
     if (!diagnosis.Empty()) {
         diagnosis.Output(cerr);
         return 0;

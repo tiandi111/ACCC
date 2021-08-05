@@ -18,6 +18,7 @@ class TestNew {
 };
 
 class Main inherits IO {
+    a : Int;
 
     main() : Object {
         let tn : TestNew <- new TestNew in {

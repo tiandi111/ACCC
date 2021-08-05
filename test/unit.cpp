@@ -569,7 +569,7 @@ void TestRequiredPass() {
 }
 
 void TestPassManager() {
-    Program prog({});
+    auto prog = new Program();
     PassContext ctx(testDiag);
     {
         PassManager::Refresh();
@@ -667,7 +667,7 @@ void TestFrontEnd() {
     pass::PassManager::Register<ana::InitSymbolTable>();
     pass::PassManager::Register<ana::BuildInheritanceTree>();
     pass::PassManager::Register<ana::TypeChecking>();
-    pass::PassManager::Run(*prog, passContext);
+    pass::PassManager::Run(prog, passContext);
     diagnosis.Output(cout);
 }
 

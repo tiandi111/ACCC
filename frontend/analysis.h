@@ -23,52 +23,52 @@ namespace ana {
 
 class InstallBuiltin : public pass::ProgramPass {
   public:
-    repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    repr::Program* operator()(repr::Program* prog, pass::PassContext& ctx) final;
 };
 
 class CheckBuiltinInheritance : public pass::ClassPass {
   public:
-    repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
+    repr::Class* operator()(repr::Class* cls, pass::PassContext& ctx) final;
 };
 
 class BuildInheritanceTree : public pass::ProgramPass {
   public:
-    repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    repr::Program* operator()(repr::Program* prog, pass::PassContext& ctx) final;
 };
 
 class CheckInheritedAttributes : public pass::ClassPass {
   public:
-    repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
+    repr::Class* operator()(repr::Class* cls, pass::PassContext& ctx) final;
 };
 
 class AddInheritedAttributes : public pass::ClassPass {
   public:
-    repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
+    repr::Class* operator()(repr::Class* cls, pass::PassContext& ctx) final;
 };
 
 class CheckInheritedMethods : public pass::ClassPass {
   public:
-    repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
+    repr::Class* operator()(repr::Class* cls, pass::PassContext& ctx) final;
 };
 
 class AddInheritedMethods : public pass::ClassPass {
   public:
-    repr::Class operator()(repr::Class& cls, pass::PassContext& ctx) final;
+    repr::Class* operator()(repr::Class* cls, pass::PassContext& ctx) final;
 };
 
 class InitSymbolTable : public pass::ProgramPass {
   public:
-    repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    repr::Program* operator()(repr::Program* prog, pass::PassContext& ctx) final;
 };
 
 class TypeChecking : public pass::ProgramPass {
   public:
-    repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    repr::Program* operator()(repr::Program* prog, pass::PassContext& ctx) final;
 };
 
 class EliminateSelfType : public pass::ProgramPass {
   public:
-    repr::Program operator()(repr::Program& prog, pass::PassContext& ctx) final;
+    repr::Program* operator()(repr::Program* prog, pass::PassContext& ctx) final;
 };
 
 class SemanticChecking : public pass::Sequential {
