@@ -102,6 +102,8 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     llvm::Function* CreateNewOperatorBody(Class& cls);
     llvm::Value* CreateNewOperatorCall(const string& type);
 
+    llvm::Value* CreateMallocCall(int size, llvm::Type* ptrType);
+
 public:
     LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& stable);
     LLVMGen(const LLVMGen& llvmGen) = delete;

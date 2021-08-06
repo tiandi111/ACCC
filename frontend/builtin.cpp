@@ -212,3 +212,7 @@ bool builtin::IsBuiltinClass(const string& name) {
 bool builtin::IsInheritable(const string& name) {
     return inheritableClasses.find(name) != inheritableClasses.end();
 }
+
+string builtin::CoolMainFunctionName() {
+    return "coolmain";
+}

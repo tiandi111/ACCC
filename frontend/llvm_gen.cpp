@@ -145,6 +145,8 @@ PointerType* LLVMGen::CreateStructPointerTypeIfNx(const string& name) {
 
 llvm::PointerType* LLVMGen::GetStringLLVMType() {
     StructType *st = CreateOpaqueStructTypeIfNx("String");
+
+//    if(st->isOpaque()) todo: this line cause Assersion failed, check the reason
     st->setBody({Type::getInt32Ty(*context), PointerType::getInt8PtrTy(*context)});
     return PointerType::get(st, 0);
 }
@@ -154,18 +156,27 @@ llvm::AllocaInst* LLVMGen::AllocLLVMConstStringStruct(const string& str) {
 
     // create data
     vector<Constant*> chars;
-    for (auto& c : str) chars.emplace_back(ConstInt8(c));
+    for (auto& c : str)
+        chars.emplace_back(ConstInt8(c));
     chars.emplace_back(ConstInt8('\0'));
+
+    auto arrPtr = CreateMallocCall(
+        chars.size(),
+        PointerType::get(
+            ArrayType::get(Type::getInt8Ty(*context), chars.size()),
+            0)
+            );
     auto constData = ConstantArray::get(ArrayType::get(Type::getInt8Ty(*context), chars.size()), chars);
-    auto constDataPtr = builder->CreateGEP(constData->getType(), constData, ConstInt32s({0, 0}));
+    builder->CreateStore(constData, arrPtr);
+    auto dataPtr = builder->CreatePointerCast(arrPtr, PointerType::getInt8PtrTy(*context));
 
     // set size pointer
     auto sizePtr = builder->CreateGEP(alloca, ConstInt32s({0, 0}));
     builder->CreateStore(ConstInt32(chars.size() - 1), sizePtr);
 
     // set data pointer
-    auto dataPtr = builder->CreateGEP(alloca, ConstInt32s({0, 1}));
-    builder->CreateStore(constDataPtr, dataPtr);
+    auto targetDataPtr = builder->CreateGEP(alloca, ConstInt32s({0, 1}));
+    builder->CreateStore(dataPtr, targetDataPtr);
 
     return alloca;
 }
@@ -221,10 +232,10 @@ Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type
 }
 
 llvm::Function* LLVMGen::CreateFunctionMain() {
-    if (auto function = module->getFunction("coolmain") )
+    if (auto function = module->getFunction(builtin::CoolMainFunctionName()))
         return function;
     FunctionType* ft = FunctionType::get(Type::getVoidTy(*context), {}, false);
-    return Function::Create(ft, Function::ExternalLinkage, "coolmain", module.get());
+    return Function::Create(ft, Function::ExternalLinkage, builtin::CoolMainFunctionName(), module.get());
 }
 
 void LLVMGen::CreateRuntimeFunctionDecls() {
@@ -304,9 +315,7 @@ llvm::Function* LLVMGen::CreateNewOperatorBody(Class &cls) {
 
     // malloc
     uint32_t size = cls.GetFieldFeatures().size() * 4;
-    auto mallocFunc = module->getFunction("mallocool");
-    auto orgPtr = builder->CreateCall(mallocFunc, {ConstInt64(size)});
-    auto ptr = builder->CreatePointerCast(orgPtr, CreateStructPointerTypeIfNx(cls.GetName().Value()));
+    auto ptr = CreateMallocCall(size, CreateStructPointerTypeIfNx(cls.GetName().Value()));
 
     // init fields
     uint32_t i = 0;
@@ -327,6 +336,12 @@ llvm::Function* LLVMGen::CreateNewOperatorBody(Class &cls) {
 llvm::Value* LLVMGen::CreateNewOperatorCall(const string& type) {
     CreateNewOperatorDeclIfNx(type);
     return builder->CreateCall(module->getFunction(type), {});
+}
+
+llvm::Value* LLVMGen::CreateMallocCall(int size, llvm::Type* ptrType) {
+    auto mallocFunc = module->getFunction("mallocool");
+    auto orgPtr = builder->CreateCall(mallocFunc, {ConstInt64(size)});
+    return builder->CreatePointerCast(orgPtr, ptrType);
 }
 
 void LLVMGen::DumpTextualIR(const string &filename) {
