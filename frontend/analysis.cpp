@@ -4,7 +4,6 @@
 
 #include <string>
 #include <unordered_set>
-#include <unordered_map>
 #include <memory>
 #include <vector>
 
@@ -16,11 +15,13 @@
 #include "typead.h"
 #include "repr.h"
 #include "token.h"
+#include "constant.h"
 
 using namespace std;
 using namespace cool;
 using namespace visitor;
 using namespace adt;
+using namespace constant;
 
 repr::Program* ana::InstallBuiltin::operator()(repr::Program* prog, pass::PassContext& ctx) {
 
@@ -34,8 +35,8 @@ repr::Program* ana::InstallBuiltin::operator()(repr::Program* prog, pass::PassCo
     }
 
     for (auto& cls : prog->GetClasses()) {
-        if (cls->GetParent().Empty() && cls->GetName().Value() != "Object")
-            cls->SetParent({"Object", cls->GetParent().TextInfo()});
+        if (cls->GetParent().Empty() && cls->GetName().Value() != CLS_OBJECT_NAME)
+            cls->SetParent({CLS_OBJECT_NAME, cls->GetParent().TextInfo()});
     }
     return prog;
 }
@@ -45,13 +46,13 @@ repr::Class* ana::CheckBuiltinInheritance::operator()(repr::Class* cls, pass::Pa
     if (IsBuiltinClass(cls->GetParent().Value()) && !IsInheritable(cls->GetParent().Value())) {
         ctx.diag.EmitError(cls->GetParent().TextInfo(),
             "cannot inherit built-in class '" + cls->GetParent().Value() + "'");
-        cls->SetParent({"Object", cls->GetParent().TextInfo()}); //
+        cls->SetParent({CLS_OBJECT_NAME, cls->GetParent().TextInfo()}); //
     }
     return cls;
 }
 
 repr::Program* ana::BuildInheritanceTree::operator()(repr::Program* prog, pass::PassContext& ctx) {
-    type::TypeAdvisor typeAdvisor(prog->GetClassPtr("Object"));
+    type::TypeAdvisor typeAdvisor(prog->GetClassPtr(CLS_OBJECT_NAME));
 
     vector<repr::Class*> stack;
 
@@ -410,11 +411,11 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
         }
 
         TypeName Visit_(repr::Add& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '+' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '+' must be 'Int'");
-            return "Int";
+            return CLS_INT_NAME;
         }
 
         TypeName Visit_(repr::Block& expr) {
@@ -498,24 +499,24 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
         }
 
         TypeName Visit_(repr::Divide& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '/' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '/' must be 'Int'");
-            return "Int";
+            return CLS_INT_NAME;
         }
 
         TypeName Visit_(repr::Equal& expr) {
             auto leftType = ExprVisitor<TypeName>::Visit(*expr.GetLeft());
             auto rightType = ExprVisitor<TypeName>::Visit(*expr.GetRight());
-            if (((leftType == "Int" || leftType == "String" || leftType == "Bool") ||
-                (rightType == "Int" || rightType == "String" || rightType == "Bool")) &&
+            if (((leftType == CLS_INT_NAME || leftType == CLS_STRING_NAME || leftType == CLS_BOOL_NAME) ||
+                (rightType == CLS_INT_NAME || rightType == CLS_STRING_NAME || rightType == CLS_BOOL_NAME)) &&
                 (leftType != rightType))
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "'Int', 'String', 'Bool' can only be compared with the same type");
-            return "Bool";
+            return CLS_BOOL_NAME;
         }
 
-        TypeName Visit_(repr::False& expr) { return "Bool"; }
+        TypeName Visit_(repr::False& expr) { return CLS_BOOL_NAME; }
 
         TypeName Visit_(repr::ID& expr) {
             auto idAttr = stable.GetIdAttr(expr.GetName().Value());
@@ -528,13 +529,13 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
 
         TypeName Visit_(repr::IsVoid& expr) {
             ExprVisitor<TypeName>::Visit(*expr.GetExpr());
-            return "Bool";
+            return CLS_BOOL_NAME;
         }
 
-        TypeName Visit_(repr::Integer& expr) { return "Int"; }
+        TypeName Visit_(repr::Integer& expr) { return CLS_INT_NAME; }
 
         TypeName Visit_(repr::If& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetIfExpr()) != "Bool")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetIfExpr()) != CLS_BOOL_NAME)
                 ctx.diag.EmitError(expr.GetIfExpr()->GetTextInfo(), "predicate in if statement must be 'Bool'");
             return typeAdvisor.LeastCommonAncestor(
                 ExprVisitor<TypeName>::Visit(*expr.GetThenExpr()),
@@ -542,19 +543,19 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
         }
 
         TypeName Visit_(repr::LessThanOrEqual& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '<=' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '<=' must be 'Int'");
-            return "Bool";
+            return CLS_BOOL_NAME;
         }
 
         TypeName Visit_(repr::LessThan& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '<' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '<' must be 'Int'");
-            return "Bool";
+            return CLS_BOOL_NAME;
         }
 
         TypeName Visit_(repr::Let& expr) {
@@ -576,25 +577,25 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
         }
 
         TypeName Visit_(repr::Multiply& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '*' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '*' must be 'Int'");
-            return "Int";
+            return CLS_INT_NAME;
         }
 
         TypeName Visit_(repr::Minus& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetLeft()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetLeft()->GetTextInfo(), "operand for '-' must be 'Int'");
-            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetRight()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetRight()->GetTextInfo(), "operand for '-' must be 'Int'");
-            return "Int";
+            return CLS_INT_NAME;
         }
 
         TypeName Visit_(repr::Negate& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetExpr()) != "Int")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetExpr()) != CLS_INT_NAME)
                 ctx.diag.EmitError(expr.GetTextInfo(), "operand for '~' must be 'Int'");
-            return "Int";
+            return CLS_INT_NAME;
         }
 
         TypeName Visit_(repr::New& expr) {
@@ -602,22 +603,22 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
         }
 
         TypeName Visit_(repr::Not& expr) {
-            if (ExprVisitor<TypeName>::Visit(*expr.GetExpr()) != "Bool")
+            if (ExprVisitor<TypeName>::Visit(*expr.GetExpr()) != CLS_BOOL_NAME)
                 ctx.diag.EmitError(expr.GetTextInfo(), "operand for 'not' must be 'Int'");
-            return "Bool";
+            return CLS_BOOL_NAME;
         }
 
-        TypeName Visit_(repr::String& expr) { return "String"; }
+        TypeName Visit_(repr::String& expr) { return CLS_STRING_NAME; }
 
-        TypeName Visit_(repr::True& expr) { return "Bool"; }
+        TypeName Visit_(repr::True& expr) { return CLS_BOOL_NAME; }
 
         TypeName Visit_(repr::While& expr) {
             ENTER_SCOPE_GUARD(stable, {
-                if (ExprVisitor<TypeName>::Visit(*expr.GetWhileExpr()) != "Bool")
+                if (ExprVisitor<TypeName>::Visit(*expr.GetWhileExpr()) != CLS_BOOL_NAME)
                     ctx.diag.EmitError(expr.GetTextInfo(), "predicate in while expression must be 'Bool'");
                 ExprVisitor<TypeName>::Visit(*expr.GetLoopExpr());
             })
-            return "Object";
+            return CLS_OBJECT_NAME;
         }
     };
 
@@ -655,7 +656,7 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
         }
 
         void Visit(repr::FieldFeature &feat) {
-            if (feat.GetType().Value() == "SELF_TYPE")
+            if (feat.GetType().Value() == TYPE_SELF_TYPE)
                 feat.SetType({stable.GetClass()->GetName().Value(), feat.GetType().TextInfo()});
             if (feat.GetExpr())
                 Visit(*feat.GetExpr());
@@ -663,7 +664,7 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
 
         void Visit(repr::FuncFeature &feat) {
             ENTER_SCOPE_GUARD(stable, {
-                if (feat.GetType().Value() == "SELF_TYPE")
+                if (feat.GetType().Value() == TYPE_SELF_TYPE)
                     feat.SetType({stable.GetClass()->GetName().Value(), feat.GetType().TextInfo()});
                 Visit(*feat.GetExpr());
             })
@@ -676,7 +677,7 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
         }
 
         void Visit_(repr::LinkBuiltin& expr) {
-            if (expr.GetType() == "SELF_TYPE")
+            if (expr.GetType() == TYPE_SELF_TYPE)
                 expr.SetType(stable.GetClass()->GetName().Value());
         }
 
@@ -777,7 +778,7 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
         }
 
         void Visit_(repr::New& expr) {
-            if (expr.GetType().Value() == "SELF_TYPE")
+            if (expr.GetType().Value() == TYPE_SELF_TYPE)
                 expr.SetType({stable.GetClass()->GetName().Value(), expr.GetType().TextInfo()});
         }
 

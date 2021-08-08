@@ -10,11 +10,13 @@
 #include "parser.h"
 #include "repr.h"
 #include "token.h"
+#include "constant.h"
 
 using namespace cool;
 using namespace parser;
 using namespace repr;
 using namespace tok;
+using namespace constant;
 
 bool ParsingResultChecker::Visit(repr::Program &prog) {
     for (auto& cls : prog.GetClasses()) if (!cls || !Visit(*cls)) return false;
@@ -413,7 +415,7 @@ Formal* Parser::ParseFormal() {
     PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
         Match(Token::TypeID),
         PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
-            Peek().val != "SELF_TYPE",
+            Peek().val != TYPE_SELF_TYPE,
             formal->SetType(StringAttr(ConsumeReturn())),
             "'SELF_TYPE' cannot be used in formal parameter declaration", formal),
         "expected type identifier in formal parameter declaration", formal);
@@ -682,7 +684,7 @@ Case* Parser::ParseCase() {
         PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
             Match(Token::TypeID),
             PARSER_STAT_IF_FALSE_EMIT_DIAG_RETURN(
-                Peek().val != "SELF_TYPE",
+                Peek().val != TYPE_SELF_TYPE,
                 branch->SetType(StringAttr(ConsumeReturn())),
                 "'SELF_TYPE' cannot be used in case expression", branch),
             "expected type identifier", branch);

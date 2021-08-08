@@ -44,8 +44,6 @@ vector<repr::Class*> NewBuiltinClasses();
 bool IsBuiltinClass(const string& name);
 bool IsInheritable(const string& name);
 
-string CoolMainFunctionName();
-
 } // builtin
 
 } // cool

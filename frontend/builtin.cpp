@@ -6,16 +6,18 @@
 
 #include "builtin.h"
 #include "repr.h"
+#include "constant.h"
 
 using namespace std;
 using namespace cool;
 using namespace builtin;
 using namespace repr;
+using namespace constant;
 
 repr::FuncFeature* builtin::GetAbortFuncFeature() {
     return new FuncFeature(
         StringAttr("abort"),
-        StringAttr("Object"),
+        StringAttr(CLS_OBJECT_NAME),
         new LinkBuiltin()
     );
 }
@@ -23,7 +25,7 @@ repr::FuncFeature* builtin::GetAbortFuncFeature() {
 repr::FuncFeature* builtin::GetTypeNameFuncFeature() {
     return new FuncFeature(
         StringAttr("type_name"),
-        StringAttr("String"),
+        StringAttr(CLS_STRING_NAME),
         new LinkBuiltin(),
         {}
     );
@@ -32,7 +34,7 @@ repr::FuncFeature* builtin::GetTypeNameFuncFeature() {
 repr::FuncFeature* builtin::GetCopyFuncFeature() {
     return new FuncFeature(
         StringAttr("copy"),
-        StringAttr("SELF_TYPE"),
+        StringAttr(TYPE_SELF_TYPE),
         new LinkBuiltin(),
         {}
     );
@@ -40,7 +42,7 @@ repr::FuncFeature* builtin::GetCopyFuncFeature() {
 
 repr::Class* builtin::GetObjectClass() {
     return new Class(
-        StringAttr("Object"),
+        StringAttr(CLS_OBJECT_NAME),
         StringAttr(""),
         {
 //        make_shared<FuncFeature>(Abort),
@@ -54,10 +56,10 @@ repr::Class* builtin::GetObjectClass() {
 repr::FuncFeature* builtin::GetOutStringFuncFeature() {
     return new FuncFeature(
         StringAttr("out_string"),
-        StringAttr("SELF_TYPE"),
+        StringAttr(TYPE_SELF_TYPE),
         new LinkBuiltin(
             "out_string",
-            "SELF_TYPE",
+            TYPE_SELF_TYPE,
             {"x"}
         ),
         {
@@ -69,10 +71,10 @@ repr::FuncFeature* builtin::GetOutStringFuncFeature() {
 repr::FuncFeature* builtin::GetOutIntFuncFeature() {
     return new FuncFeature(
         StringAttr("out_int"),
-        StringAttr("SELF_TYPE"),
+        StringAttr(TYPE_SELF_TYPE),
         new LinkBuiltin(
             "out_int",
-            "SELF_TYPE",
+            TYPE_SELF_TYPE,
             {"x"}
         ),
         {
@@ -84,7 +86,7 @@ repr::FuncFeature* builtin::GetOutIntFuncFeature() {
 repr::FuncFeature* builtin::GetInStringFuncFeature() {
     return new FuncFeature(
         StringAttr("in_string"),
-        StringAttr("String"),
+        StringAttr(CLS_STRING_NAME),
         new LinkBuiltin(),
         {}
     );
@@ -93,7 +95,7 @@ repr::FuncFeature* builtin::GetInStringFuncFeature() {
 repr::FuncFeature* builtin::GetInIntFuncFeature() {
     return new FuncFeature(
         StringAttr("in_int"),
-        StringAttr("Int"),
+        StringAttr(CLS_INT_NAME),
         new LinkBuiltin(),
         {}
     );
@@ -101,8 +103,8 @@ repr::FuncFeature* builtin::GetInIntFuncFeature() {
 
 repr::Class* builtin::GetIOClass() {
     return new Class(
-        StringAttr("IO"),
-        StringAttr("Object"),
+        StringAttr(CLS_IO_NAME),
+        StringAttr(CLS_OBJECT_NAME),
         {
             GetOutStringFuncFeature(),
             GetOutIntFuncFeature(),
@@ -115,8 +117,8 @@ repr::Class* builtin::GetIOClass() {
 
 repr::Class* builtin::GetIntClass() {
     return new Class(
-        StringAttr("Int"),
-        StringAttr("Object"),
+        StringAttr(CLS_INT_NAME),
+        StringAttr(CLS_OBJECT_NAME),
         {},
         {}
     );
@@ -125,7 +127,7 @@ repr::Class* builtin::GetIntClass() {
 repr::FuncFeature* builtin::GetLengthFuncFeature() {
     return new FuncFeature(
         StringAttr("length"),
-        StringAttr("Int"),
+        StringAttr(CLS_INT_NAME),
         new LinkBuiltin(),
         {}
     );
@@ -133,8 +135,8 @@ repr::FuncFeature* builtin::GetLengthFuncFeature() {
 
 repr::FuncFeature* builtin::GetConcatFuncFeature() {
     return new FuncFeature(
-        StringAttr("String"),
-        StringAttr("String"),
+        StringAttr(CLS_STRING_NAME),
+        StringAttr(CLS_STRING_NAME),
         new LinkBuiltin(),
         {}
     );
@@ -143,7 +145,7 @@ repr::FuncFeature* builtin::GetConcatFuncFeature() {
 repr::FuncFeature* builtin::GetSubstrFuncFeature() {
     return new FuncFeature(
         StringAttr("substr"),
-        StringAttr("String"),
+        StringAttr(CLS_STRING_NAME),
         new LinkBuiltin(),
         {
             new Formal(StringAttr("i"), StringAttr("Int")),
@@ -154,8 +156,8 @@ repr::FuncFeature* builtin::GetSubstrFuncFeature() {
 
 repr::Class* builtin::GetStringClass() {
     return new Class(
-        StringAttr("String"),
-        StringAttr("Object"),
+        StringAttr(CLS_STRING_NAME),
+        StringAttr(CLS_OBJECT_NAME),
         {
 //        make_shared<FuncFeature>(Length),
 //        make_shared<FuncFeature>(Concat),
@@ -167,19 +169,19 @@ repr::Class* builtin::GetStringClass() {
 
 repr::Class* builtin::GetBoolClass() {
     return new Class(
-        StringAttr("Bool"),
-        StringAttr("Object"),
+        StringAttr(CLS_BOOL_NAME),
+        StringAttr(CLS_OBJECT_NAME),
         {},
         {}
     );
 }
 
 unordered_set<string> builtinClassNames = {
-    "Object",
-    "IO",
-    "Int",
-    "String",
-    "Bool"
+    CLS_OBJECT_NAME,
+    CLS_IO_NAME,
+    CLS_INT_NAME,
+    CLS_STRING_NAME,
+    CLS_BOOL_NAME
 };
 
 unordered_set<string> builtin::GetBuiltinClassNames() {
@@ -187,8 +189,8 @@ unordered_set<string> builtin::GetBuiltinClassNames() {
 }
 
 unordered_set<string> inheritableClasses = {
-    "Object",
-    "IO",
+    CLS_OBJECT_NAME,
+    CLS_IO_NAME,
 };
 
 unordered_set<string> builtin::GetInheritableBuiltInClasseNames() {
@@ -211,8 +213,4 @@ bool builtin::IsBuiltinClass(const string& name) {
 
 bool builtin::IsInheritable(const string& name) {
     return inheritableClasses.find(name) != inheritableClasses.end();
-}
-
-string builtin::CoolMainFunctionName() {
-    return "coolmain";
 }

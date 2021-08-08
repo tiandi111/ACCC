@@ -82,7 +82,7 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     // Others -> struct type
     // this will create an opaque struct type if not existed
     llvm::PointerType* GetStringLLVMType();
-    llvm::AllocaInst* AllocLLVMConstStringStruct(const string& str);
+    llvm::Value* AllocLLVMConstStringStruct(const string& str);
     llvm::Type* GetLLVMType(const string& type);
     bool IsMappedToLLVMStructPointerType(const string& type);
     bool IsStringLLVMType(llvm::Value* v);
@@ -103,6 +103,9 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     llvm::Value* CreateNewOperatorCall(const string& type);
 
     llvm::Value* CreateMallocCall(int size, llvm::Type* ptrType);
+
+    // for debug only
+    void PrintPointer(llvm::Value* value);
 
 public:
     LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& stable);

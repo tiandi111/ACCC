@@ -6,6 +6,7 @@
 #define COOL_RUNTIME_H
 
 #include "stddef.h"
+#include "stdint.h"
 
 void coolmain();
 
@@ -22,7 +23,10 @@ void start();
 
 void* mallocool(uint64_t size);
 
-void* out_int(void*, int32_t i);
-void* out_string(void*, char* str);
+void out_int(int32_t);
+void out_string(char*);
+
+// for debug use only
+void print_ptr(void*);
 
 #endif //COOL_RUNTIME_H

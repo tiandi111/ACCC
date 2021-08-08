@@ -1,33 +1,16 @@
-class Base {};
-
 class TestNew {
-    int1 : Int;
-    int2 : Int <- 1;
-    str1 : String;
-    str2 : String <- "a";
-    base1 : Base;
-    base2 : Base <- New Base;
-
-    getInt1() : Int { int1 };
-    getInt2() : Int { int2 };
-    getStr1() : String { str1 };
-    getStr2() : String { str2 };
-    getBase1() : Base { base1 };
-    getBase2() : Base { base2 };
-
+    int : Int <- 2;
+    str  : String <- "123";
+    get() : String { str };
+    getInt() : Int { int };
 };
 
 class Main inherits IO {
-    a : Int;
 
     main() : Object {
-        let tn : TestNew <- new TestNew in {
-            out_int(tn.getInt1());
-            isvoid tn;
-            tn.getInt1() = tn.getInt2();
-            tn.getStr1() = tn.getStr2();
-            tn.getBase1() = tn.getBase2();
-            tn = tn;
+        {
+            out_int((new TestNew).getInt());
+            out_string((new TestNew).get());
         }
     };
 
