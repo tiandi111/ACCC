@@ -54,6 +54,7 @@ llvm::Value* LLVMGen::SymbolTable::get(const string& name) {
         if (valueTable.at(*it).find(name) != valueTable.at(*it).end())
             return valueTable.at(*it).at(name);
     }
+    assert(false && "symbol not found");
     return nullptr;
 }
 
@@ -92,7 +93,7 @@ LLVMGen::LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& _stable)
     // initialize fields
     context = make_unique<LLVMContext>();
     builder = make_unique<IRBuilder<>>(*context);
-    module = make_unique<Module>(CLS_MAIN_NAME, *context);
+    module = make_unique<Module>("main", *context);
 
     // initialize llvm
     InitializeNativeTarget();
@@ -401,7 +402,10 @@ llvm::Value* LLVMGen::genCall(const string& selfType, llvm::Value* self, repr::C
 
     vector<Value*> args = {self};
     for (auto& arg : call.GetArgs()) {
-        args.emplace_back(Visit(*arg));
+        auto value = Visit(*arg);
+        if (dynamic_cast<ID*>(arg))
+            value = builder->CreateLoad(value);
+        args.emplace_back(value);
     }
 
     return builder->CreateCall(function, args);
@@ -442,7 +446,10 @@ Value * LLVMGen::Visit(FuncFeature &feat) {
             builder->SetInsertPoint(bb);
             auto selfVar = CreateNewOperatorCall(CLS_MAIN_NAME);
             llvmStable.InsertSelfVar(selfVar);
-            builder->Insert(Visit(*feat.GetExpr()));
+//          note: don't do this! we have added llvm::Value*-s in Visit function call
+//                insert twice cause memory problem!!
+//            builder->Insert(Visit(*feat.GetExpr()));
+            Visit(*feat.GetExpr());
             builder->CreateRetVoid();
 
         } else {
@@ -508,9 +515,11 @@ Value* LLVMGen::Visit_(repr::LinkBuiltin& expr) {
     return ret;
 }
 
+// todo: this code 'let a:Int in { a<-a; }' generates bug
 Value* LLVMGen::Visit_(repr::Assign& expr) {
-    builder->CreateStore(Visit(*expr.GetExpr()), Visit(*expr.GetId()));
-    return Visit(*expr.GetId());
+    Value* value = Visit(*expr.GetExpr());
+    builder->CreateStore(value, Visit(*expr.GetId()));
+    return value;
 }
 
 Value* LLVMGen::Visit_(repr::Add& expr) {
@@ -520,7 +529,8 @@ Value* LLVMGen::Visit_(repr::Add& expr) {
 Value* LLVMGen::Visit_(repr::Block& expr) {
     Value* value;
     ENTER_SCOPE_GUARD(stable, {
-        for (auto& eExpr : expr.GetExprs()) value = Visit(*eExpr);
+        for (auto& eExpr : expr.GetExprs())
+            value = Visit(*eExpr);
     })
     return value;
 }
@@ -559,7 +569,7 @@ Value* LLVMGen::Visit_(repr::Equal& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::False& expr) {
-    return ConstantInt::getFalse(*context);
+    return ConstInt32(0);
 }
 
 Value* LLVMGen::Visit_(repr::ID& expr) {
@@ -567,11 +577,10 @@ Value* LLVMGen::Visit_(repr::ID& expr) {
     switch (idAttr->storageClass) {
         case attr::IdAttr::Field: {
             auto self = llvmStable.GetSelfVar();
-            auto fieldPtr = builder->CreateGEP(self, ConstInt32s({0, uint32_t (idAttr->idx)}));
-            return builder->CreateLoad(fieldPtr);
+            return builder->CreateGEP(self, ConstInt32s({0, uint32_t (idAttr->idx)}));
         }
         case attr::IdAttr::Local:
-            return builder->CreateLoad(llvmStable.GetLocalVar(idAttr->name));
+            return llvmStable.GetLocalVar(idAttr->name);
         case attr::IdAttr::Arg:
             return llvmStable.GetArg(idAttr->name);
         default:
@@ -622,14 +631,14 @@ Value* LLVMGen::Visit_(repr::Let& expr) {
         builder->CreateStore(value, alloca);
         return alloca;
     };
-    Value* value;
-    for (int i = 0; i < expr.GetDecls().size(); i++) {
-        auto decl = expr.GetDecls().at(i);
+    auto decls = expr.GetDecls();
+    for (int i = 0; i < decls.size(); i++) {
+        auto decl = decls.at(i);
         stable.EnterScope();
         llvmStable.InsertLocalVar(decl->GetName().Value(), visitFormal(*decl));
     }
-    value = Visit(*expr.GetExpr());
-    for (int i = 0; i < expr.GetDecls().size(); i++)
+    auto value = Visit(*expr.GetExpr());
+    for (int i = 0; i < decls.size(); i++)
         stable.LeaveScope();
     return value;
 }
@@ -667,7 +676,7 @@ Value* LLVMGen::Visit_(repr::String& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::True& expr) {
-    return ConstantInt::getTrue(*context);
+    return ConstInt32(1);
 }
 
 Value* LLVMGen::Visit_(repr::While& expr) {

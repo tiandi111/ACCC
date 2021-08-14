@@ -93,7 +93,9 @@ add_executable(itest
 #        middleend/mini-llvm/ir/type.h
 #        middleend/mini-llvm/ir/value.h
 
-        test/integration/semantics.h test/integration/semantics.cpp)
+        test/integration/semantics.h test/integration/semantics.cpp
+        test/integration/syntactics.h test/integration/sytactics.cpp
+        test/integration/utils.h)
 
 add_executable(runtime
         runtime/runtime.h runtime/runtime.c)

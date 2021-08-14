@@ -19,7 +19,7 @@ using namespace parser;
 using namespace pass;
 using namespace ana;
 
-void cool::integration::RunFrontEnd(const Test& test) {
+void cool::integration::RunSemantics(const Test& test) {
     for (auto& case_ : test.cases) {
         Diagnosis diagnosis;
         stringstream sstream(case_.program);
@@ -46,59 +46,59 @@ void cool::integration::RunFrontEnd(const Test& test) {
 }
 
 void cool::integration::TestArithmetic() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestArithmetic"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestArithmetic"));
 }
 
 void cool::integration::TestAssignment() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestAssignment"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestAssignment"));
 }
 
 void cool::integration::TestBlock() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestBlock"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestBlock"));
 }
 
 void cool::integration::TestCase() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestCase"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestCase"));
 }
 
 void cool::integration::TestClassRedefinition() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestClassRedefinition"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestClassRedefinition"));
 }
 
 void cool::integration::TestDispatch() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestDispatch"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestDispatch"));
 }
 
 void cool::integration::TestIf() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestIf"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestIf"));
 }
 
 void cool::integration::TestInheritance() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestInheritance"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestInheritance"));
 }
 
 void cool::integration::TestInheritBuiltinClass() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestInheritBuiltinClass"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestInheritBuiltinClass"));
 }
 
 void cool::integration::TestIsVoid() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestIsVoid"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestIsVoid"));
 }
 
 void cool::integration::TestLet() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestLet"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestLet"));
 }
 
 void cool::integration::TestNew() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestNew"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestNew"));
 }
 
 void cool::integration::TestSelfTypeUsage() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestSelfTypeUsage"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestSelfTypeUsage"));
 }
 
 void cool::integration::TestWhile() {
-    RunFrontEnd(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestWhile"));
+    RunSemantics(IntegrationTestLoader::GetIntegrationTestLoader().Get("TestWhile"));
 }
 
 int main() {

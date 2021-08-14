@@ -490,6 +490,8 @@ Expr* Parser::OperatorExprFactory(Token::Type type, repr::Expr* left, repr::Expr
 }
 
 
+// todo: 1. write test cases for precedence
+//       2.
 Expr* Parser::ParseExpr() {
     vector<pair<Token, Expr*>> exprs;
 

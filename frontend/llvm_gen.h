@@ -121,7 +121,7 @@ public:
     void Visit(Class& cls);
     llvm::Value* Visit(FuncFeature& feat);
     llvm::Type*  Visit(FieldFeature& feat);
-    llvm::Type* Visit(Formal& formal);
+    llvm::Type*  Visit(Formal& formal);
     llvm::Value* Visit(repr::Expr& expr);
     llvm::Value* Visit_(repr::LinkBuiltin& expr);
     llvm::Value* Visit_(repr::Assign& expr);
