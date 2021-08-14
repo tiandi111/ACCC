@@ -366,7 +366,8 @@ FuncFeature* Parser::ParseFuncFeature() {
 
     PushScopeEnd(closeBracePos);
     auto expr = ParseExpr();
-    if (!Empty()) diag.EmitError(GetTextInfo(), "only one expression allowed in function declaration");
+    if (!Empty())
+        diag.EmitError(GetTextInfo(), "only one expression allowed in function declaration");
     PopScopeEnd();
 
     if (checker.Visit(expr))
@@ -422,147 +423,196 @@ Formal* Parser::ParseFormal() {
     return formal;
 }
 
-// todo: precedence
-// todo: this function is complex, try to simplify
-Expr* Parser::ParseExpr() {
-    stack<Expr*> exprStack;
+Parser::ParseExprFunctor Parser::GetParseExprFunctor(Token::Type first) {
+    switch (first) {
+        case tok::Token::kIf:
+            return &Parser::ParseIf;
+        case tok::Token::kWhile:
+            return &Parser::ParseWhile;
+        case tok::Token::ID:
+            if (MatchMultiple({Token::ID, Token::kAssignment}))
+                return &Parser::ParseAssign;
+            if (MatchMultiple({Token::ID, Token::kOpenParen}))
+                 return &Parser::ParseCall;
+            return &Parser::ParseID;
+        case Token::kOpenBrace:
+            return &Parser::ParseBlock;
+        case Token::kOpenParen:
+            return &Parser::ParseParen;
+        case Token::kLet:
+            return &Parser::ParseLet;
+        case Token::kCase:
+            return &Parser::ParseCase;
+        case Token::kNew:
+            return &Parser::ParseNew;
+        case Token::Integer:
+            return &Parser::ParseInteger;
+        case Token::String:
+            return &Parser::ParseString;
+        case Token::kTrue:
+            return &Parser::ParseTrue;
+        case Token::kFalse:
+            return &Parser::ParseFalse;
+        default:
+            return nullptr;
+    }
+}
 
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(!Empty(), "expected expression", nullptr);
+Expr* Parser::OperatorExprFactory(Token::Type type, repr::Expr* left, repr::Expr* right) {
+    assert (Token::IsOperator(type));
+
+    switch (type) {
+        case Token::kAdd:
+            return new Add(left, right);
+        case Token::kMinus:
+            return new Minus(left, right);
+        case Token::kMultiply:
+            return new Multiply(left, right);
+        case Token::kDivide:
+            return new Divide(left, right);
+        case Token::kLessThan:
+            return new LessThan(left, right);
+        case Token::kLessThanOrEqual:
+            return new LessThanOrEqual(left, right);
+        case Token::kDot:
+            return new MethodCall(left, right);
+        case Token::kEqual:
+            return new Equal(left, right);
+        case Token::kNegate:
+            return new Negate(left);
+        case Token::kNot:
+            return new Not(left);
+        case Token::kIsvoid:
+            return new IsVoid(left);
+        default:
+            assert(false);
+    }
+}
+
+
+Expr* Parser::ParseExpr() {
+    vector<pair<Token, Expr*>> exprs;
+
+    // parse unary operator into expression
+    auto ParseUnary = [this](Token::Type type, int idx, vector<pair<Token, Expr*>>& exprs) {
+        if (idx == exprs.size() - 1) {
+            diag.EmitError(GetTextInfo(), "expected non-operator expression");
+            return false;
+        }
+        if (exprs.at(idx + 1).first.IsOperator()) {
+            diag.EmitError(exprs.at(idx + 1).first.textInfo, "expected non-operator expression");
+            return false;
+        }
+        exprs.at(idx + 1).second = OperatorExprFactory(type, exprs.at(idx + 1).second, nullptr);
+        exprs.erase(exprs.begin() + idx);
+        return true;
+    };
+
+    // parse binary operator into expression
+    auto ParseBinary = [this](Token::Type type, int idx, vector<pair<Token, Expr*>>& exprs) {
+        if (idx == 0) {
+            diag.EmitError(exprs.at(idx).first.textInfo, "expected non-operator expression");
+            return false;
+        }
+        if (exprs.at(idx - 1).first.IsOperator()) {
+            diag.EmitError(exprs.at(idx - 1).first.textInfo, "expected non-operator expression");
+            return false;
+        }
+        if (idx == exprs.size() - 1) {
+            diag.EmitError(GetTextInfo(), "expected non-operator expression");
+            return false;
+        }
+        if (!exprs.at(idx + 1).second) {
+            diag.EmitError(exprs.at(idx + 1).first.textInfo, "expected non-operator expression");
+            return false;
+        }
+
+        exprs.at(idx - 1).second =
+            OperatorExprFactory(type, exprs.at(idx - 1).second, exprs.at(idx + 1).second);
+        exprs.erase(exprs.begin() + idx, exprs.begin() + idx + 2);
+        return true;
+    };
+
+    auto ParseOperator = [ParseUnary, ParseBinary](Token::Type type, int idx, vector<pair<Token, Expr*>>& exprs) {
+        assert(Token::IsOperator(type));
+        if (Token::IsUnary(type)) {
+            if (!ParseUnary(type, idx, exprs))
+                return false;
+        } else if (!ParseBinary(type, idx, exprs)) {
+            return false;
+        }
+        return true;
+    };
+
+    auto LastOpIdx = [](vector<pair<Token, Expr*>>& exprs, int end) {
+        for (int i = min(end, int(exprs.size())) - 1; i >= 0 ; --i)
+            if (exprs.at(i).first.IsOperator())
+                return i;
+        return -1;
+    };
 
     while (!Empty()) {
-        Expr* expr;
-        auto tokType = Peek().type;
-        if (exprStack.empty()) {
-            switch (tokType) {
-                case Token::kIf:
-                    expr = ParseIf();
+
+        if (!Peek().IsOperator()) { // parse operand expression
+
+            auto functor = GetParseExprFunctor(Peek().type);
+            if (!functor)
+                break;
+            exprs.emplace_back(Peek(), functor(*this));
+
+        } else { // parse operator, we need to handle precedence
+
+            auto token = ConsumeReturn();
+            while (LastOpIdx(exprs, exprs.size()) >= 0) {
+                int lastOpIdx = LastOpIdx(exprs, exprs.size());
+
+                auto lastOp = exprs.at(lastOpIdx).first;
+
+                // we are higher, cannot decide
+                if (Token::GetOperatorPrecedence(token.type) > Token::GetOperatorPrecedence(lastOp.type))
                     break;
-                case Token::kWhile:
-                    expr = ParseWhile();
-                    break;
-                case Token::kOpenBrace: {
-                    int closeBracePos = ReturnValidBraceMatchFor(Pos());
-                    if (closeBracePos < 0) {
-                        MoveTo(ScopeEnd() - 1);
-                        diag.EmitError(GetTextInfo(), "expected '}' in block expression");
-                        expr = nullptr;
-                        break;
-                    }
-                    PushScopeEnd(closeBracePos + 1);
-                    expr = ParseBlock();
-                    PopScopeEnd();
-                    MoveTo(closeBracePos + 1);
-                    break;
-                }
-                case Token::kLet:
-                    expr = ParseLet();
-                    break;
-                case Token::kCase:
-                    expr = ParseCase();
-                    break;
-                case Token::kNew:
-                    expr = ParseNew();
-                    break;
-                case Token::kIsvoid:
-                    expr = ParseIsVoid();
-                    break;
-                case Token::kNegate:
-                    expr = ParseNegate();
-                    break;
-                case Token::kNot:
-                    expr = ParseNot();
-                    break;
-                case Token::kOpenParen: {
-                    int closeParenPos = ReturnValidParenMatchFor(Pos());
-                    if (closeParenPos < 0) {
-                        MoveTo(ScopeEnd()-1);
-                        diag.EmitError(GetTextInfo(), "expected ')'");
-                        expr = nullptr;
-                        break;
-                    }
-                    Consume();
-                    PushScopeEnd(closeParenPos);
-                    expr = ParseExpr();
-                    PopScopeEnd();
-                    MoveTo(closeParenPos + 1);
-                    break;
-                }
-                case Token::ID: {
-                    if (MatchMultiple({Token::ID, Token::kAssignment})) {
-                        expr = ParseAssign();
-                    } else if (MatchMultiple({Token::ID, Token::kOpenParen})) {
-                        int closeParenPos = ReturnValidParenMatchFor(Pos()+1);
-                        if (closeParenPos < 0) {
-                            MoveTo(ScopeEnd() - 1);
-                            diag.EmitError(GetTextInfo(), "expected ')'");
-                            expr = nullptr;
-                            break;
-                        }
-                        PushScopeEnd(closeParenPos + 1);
-                        expr = ParseCall();
-                        PopScopeEnd();
-                        MoveTo(closeParenPos + 1);
-                    } else {
-                        expr = ParseID();
-                    }
-                    break;
-                }
-                case Token::Integer:
-                    expr = ParseInteger();
-                    break;
-                case Token::String:
-                    expr = ParseString();
-                    break;
-                case Token::kTrue:
-                    expr = ParseTrue();
-                    break;
-                case Token::kFalse:
-                    expr = ParseFalse();
-                    break;
-                default:
-                    throw runtime_error("invalid Expr type");
+
+                if (!ParseOperator(lastOp.type, lastOpIdx, exprs))
+                   return nullptr;
             }
+            exprs.emplace_back(token, nullptr); // placeholder
         }
-        else if (tokType >= Token::kBinaryST && tokType <= Token::kBinaryEND) {
-            if (exprStack.empty()) throw runtime_error("expr stack is empty");
-            auto left = exprStack.top();
-            exprStack.pop();
-            switch (tokType) {
-                case Token::kAdd:
-                    expr = ParseAdd(left);
-                    break;
-                case Token::kMinus:
-                    expr = ParseMinus(left);
-                    break;
-                case Token::kMultiply:
-                    expr = ParseMultiply(left);
-                    break;
-                case Token::kDivide:
-                    expr = ParseDivide(left);
-                    break;
-                case Token::kLessThan:
-                    expr = ParseLessThan(left);
-                    break;
-                case Token::kLessThanOrEqual:
-                    expr = ParseLessThanOrEqual(left);
-                    break;
-                case Token::kDot:
-                    expr = ParseMethodCall(left);
-                    break;
-                case Token::kEqual:
-                    expr = ParseEqual(left);
-                    break;
-            }
-        }
-        else break;
-        exprStack.push(expr);
     }
 
-    if (exprStack.empty()) {
+    // todo: should first parse from right until
+    //  two consecutive equal-precedence operators encountered
+    while (LastOpIdx(exprs, exprs.size()) >= 0) {
+        int lastOpIdx = LastOpIdx(exprs, exprs.size());
+
+        int secondLastOpIdx = LastOpIdx(exprs, lastOpIdx);
+        if (secondLastOpIdx < 0 ||
+        (Token::GetOperatorPrecedence(exprs.at(lastOpIdx).first.type) <=
+        Token::GetOperatorPrecedence(exprs.at(secondLastOpIdx).first.type))
+        )
+            break;
+        if (!ParseOperator(exprs.at(lastOpIdx).first.type, lastOpIdx, exprs))
+            return nullptr;
+    }
+    // parse remaining exprs
+    for (int i = 0; i < exprs.size(); i++) {
+        auto op = exprs.at(i).first;
+        if (!op.IsOperator())
+            continue;
+        if (!ParseOperator(op.type, i, exprs))
+            return nullptr;
+    }
+
+    if (exprs.empty()) {
         diag.EmitError(GetTextInfo(), "expected expression");
         return nullptr;
     }
-    return exprStack.top();
+
+    if (exprs.size() != 1 || exprs.front().first.IsOperator()) {
+        diag.EmitError(GetTextInfo(), "invalid expression");
+        return nullptr;
+    }
+
+    return exprs.front().second;
 }
 
 If* Parser::ParseIf() {
@@ -585,26 +635,55 @@ If* Parser::ParseIf() {
 }
 
 Block* Parser::ParseBlock() {
-    auto blk = new Block(GetTextInfo());
+    auto parse = [this]() {
+        auto blk = new Block(GetTextInfo());
+        vector<Expr*> exprs;
 
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kOpenBrace), "unexpected call to ParseBlock");
+        while (!Empty()) {
+            auto expr = ParseExpr();
+            if (checker.Visit(expr))
+                exprs.emplace_back(expr);
+            else break;
 
-    vector<Expr*> exprs;
-    while (!Empty()) {
-        auto expr = ParseExpr();
-        if (checker.Visit(expr))
-            exprs.emplace_back(expr);
-        else break;
+            PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' after expression", blk);
 
-        PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' after expression", blk);
+//            if (Match(Token::kCloseBrace)) break;
+        }
 
-        if (Match(Token::kCloseBrace)) break;
+        PARSER_IF_FALSE_EMIT_DIAG_RETURN(!exprs.empty(), "expected expression", blk);
+
+        blk->SetExprs(exprs);
+        return blk;
+    };
+
+    assert(Match(Token::kOpenBrace) && "unexpected call to ParseBlock");
+    int closeBracePos = ReturnValidBraceMatchFor(Pos());
+    if (closeBracePos < 0) {
+        MoveTo(ScopeEnd() - 1);
+        diag.EmitError(GetTextInfo(), "expected '}' in block expression");
+        return nullptr;
     }
-
-    blk->SetExprs(exprs);
-
-    PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kCloseBrace), "expected '}' in block expression", blk);
+    Consume(); // consume kOpenBrace
+    PushScopeEnd(closeBracePos);
+    auto blk = parse();
+    PopScopeEnd();
+    MoveTo(closeBracePos + 1);
     return blk;
+}
+
+Expr* Parser::ParseParen() {
+    int closeParenPos = ReturnValidParenMatchFor(Pos());
+    if (closeParenPos < 0) {
+        MoveTo(ScopeEnd() - 1);
+        diag.EmitError(GetTextInfo(), "expected ')'");
+        return nullptr;
+    }
+    Consume(); // consume OpenParen
+    PushScopeEnd(closeParenPos);
+    auto expr = ParseExpr();
+    PopScopeEnd();
+    MoveTo(closeParenPos + 1);
+    return expr;
 }
 
 While* Parser::ParseWhile() {
@@ -768,6 +847,8 @@ New* Parser::ParseNew() {
     auto aNew = new New();
     PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kNew), "unexpected call to ParseNew");
 
+    // one common programing mistake is use ID instead of TypeID
+    // here we consume any non-TypeID token to recover from this kind of mistake
     if (!ConsumeIfNotMatch(Token::TypeID))
         aNew->SetType(StringAttr(ConsumeReturn()));
     else
@@ -794,57 +875,4 @@ repr::True* Parser::ParseTrue() {
 repr::False* Parser::ParseFalse() {
     assert(Match(Token::kFalse) &&"unexpected call to ParseFalse");
     return new False(ConsumeReturn().textInfo);
-}
-
-IsVoid* Parser::ParseIsVoid() {
-    assert(ConsumeIfMatch(Token::kIsvoid) && "unexpected call to ParseIsVoid");
-    return new IsVoid(ParseExpr());
-}
-
-Negate* Parser::ParseNegate() {
-    assert(ConsumeIfMatch(Token::kNegate) && "unexpected call to ParseNegate");
-    return new Negate(ParseExpr());
-}
-
-Not* Parser::ParseNot() {
-    assert(ConsumeIfMatch(Token::kNot) && "unexpected call to ParseNot");
-    return new Not(ParseExpr());
-}
-
-Add*Parser::ParseAdd(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kAdd) &&"unexpected call to ParseAdd");
-    return new Add(left, ParseExpr());
-}
-
-Minus* Parser::ParseMinus(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kMinus) && "unexpected call to ParseMinus");
-    return new Minus(left, ParseExpr());
-}
-
-Multiply* Parser::ParseMultiply(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kMultiply) && "unexpected call to ParseMultiply");
-    return new Multiply(left, ParseExpr());
-}
-Divide* Parser::ParseDivide(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kDivide) &&"unexpected call to ParseDivide");
-    return new Divide(left, ParseExpr());
-}
-
-LessThan* Parser::ParseLessThan(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kLessThan) && "unexpected call to ParseLessThan");
-    return new LessThan(left, ParseExpr());
-}
-LessThanOrEqual* Parser::ParseLessThanOrEqual(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kLessThanOrEqual) &&"unexpected call to ParseLessThanOrEqual");
-    return new LessThanOrEqual(left, ParseExpr());
-}
-
-Equal* Parser::ParseEqual(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kEqual) &&"unexpected call to ParseEqual");
-    return new Equal(left, ParseExpr());
-}
-
-MethodCall* Parser::ParseMethodCall(repr::Expr* left) {
-    assert(ConsumeIfMatch(Token::kDot) && "unexpected call to ParseMethodCall");
-    return new MethodCall(left, ParseCall());
 }

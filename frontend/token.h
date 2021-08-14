@@ -73,6 +73,63 @@ struct Token {
 
     Token(Type _type, string _str, string _val, int _line, int _pos, int _fileno = -1);
 
+    static bool IsOperator(Type type) {
+        return
+            (type > kBinaryST && type < kBinaryEND) ||
+            type == kNegate ||
+            type == kNot ||
+            type == kIsvoid;
+    }
+
+    static bool IsUnary(Type type) {
+        return
+            type == kNegate ||
+            type == kNot ||
+            type == kNew ||
+            type == kIsvoid;
+    }
+
+    enum Precedence {
+        Not,
+        Comparator,
+        Add,
+        Multiply,
+        IsVoid,
+        Negate,
+        Dot
+    };
+
+    static int GetOperatorPrecedence(Type type) {
+        if (!IsOperator(type))
+            throw runtime_error("not an operator expression");
+        switch (type) {
+            case kNot:
+                return Not;
+            case kLessThan:
+            case kLessThanOrEqual:
+            case kEqual:
+                return Comparator;
+            case kAdd:
+            case kMinus:
+                return Add;
+            case kMultiply:
+            case kDivide:
+                return Multiply;
+            case kIsvoid:
+                return IsVoid;
+            case kNegate:
+                return Negate;
+            case kDot:
+                return Dot;
+            default:
+                assert(false);
+        }
+    }
+
+    bool IsOperator();
+
+    bool IsUnary();
+
     bool Skip();
 };
 

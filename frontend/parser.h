@@ -144,9 +144,16 @@ class Parser {
 
     repr::Formal* ParseFormal();
 
+    using ParseExprFunctor = function<repr::Expr* (Parser&)>;
+
+    ParseExprFunctor GetParseExprFunctor(Token::Type);
+
+    repr::Expr* OperatorExprFactory(Token::Type, repr::Expr*, repr::Expr*);
+
     repr::Expr* ParseExpr();
     repr::If* ParseIf();
     repr::Block* ParseBlock();
+    repr::Expr* ParseParen();
     repr::While* ParseWhile();
     repr::Let* ParseLet();
     repr::Case* ParseCase();
@@ -158,19 +165,6 @@ class Parser {
     repr::String* ParseString();
     repr::True* ParseTrue();
     repr::False* ParseFalse();
-
-    repr::IsVoid* ParseIsVoid();
-    repr::Negate* ParseNegate();
-    repr::Not* ParseNot();
-
-    repr::Add* ParseAdd(repr::Expr* left);
-    repr::Minus* ParseMinus(repr::Expr* left);
-    repr::Multiply* ParseMultiply(repr::Expr* left);
-    repr::Divide* ParseDivide(repr::Expr* left);
-    repr::LessThan* ParseLessThan(repr::Expr* left);
-    repr::LessThanOrEqual* ParseLessThanOrEqual(repr::Expr* left);
-    repr::Equal* ParseEqual(repr::Expr* left);
-    repr::MethodCall* ParseMethodCall(repr::Expr* left);
 };
 
 } // parser

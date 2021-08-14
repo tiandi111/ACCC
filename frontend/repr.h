@@ -113,6 +113,7 @@ class IntAttr : public Attr {
 // For owning pointer, it is better to use smart pointer to manage its life cycle.
 // For non-owning pointer, raw pointer is okay.
 
+// todo: attach original token with repr
 class Repr {
   public:
     virtual ~Repr() = default;

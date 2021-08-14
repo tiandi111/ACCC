@@ -13,4 +13,12 @@ Token::Token(Type _type, string _str, string _val, int _line, int _pos, int _fil
     assert(type > ST && type < END);
 }
 
+bool Token::IsOperator() {
+    return Token::IsOperator(type);
+}
+
+bool Token::IsUnary() {
+    return Token::IsUnary(type);
+}
+
 bool Token::Skip() { return type == SKIP; }

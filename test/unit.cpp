@@ -61,35 +61,6 @@ void TestParseID() {
     }
 }
 
-void TestParseUnary() {
-    Parser parser(testDiag, {
-        {Token::kNot, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0}
-    });
-    try {
-        auto id = parser.ParseNot();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
-    } catch (exception& e) {
-        assert(false);
-    }
-}
-
-void TestParseBinary() {
-    Parser parser(testDiag, {
-        {Token::kAdd, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0}
-    });
-    try {
-        ID id;
-        auto binary = parser.ParseAdd(&id);
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
-    } catch (exception& e) {
-        assert(false);
-    }
-}
-
 void TestParseNew() {
     Parser parser(testDiag, {
         {Token::kNew, "", "", 0, 0},
@@ -191,47 +162,50 @@ void TestParseCase() {
 }
 
 void TestParseLet() {
-    Parser parser(testDiag, {
-        // case 1
-        {Token::kLet, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "test", "test", 0, 0},
-        {Token::kIn, "test", "test", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        // case 2
-        {Token::kLet, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "test", "test", 0, 0},
-        {Token::kAssignment, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kIn, "test", "test", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        // case 3
-        {Token::kLet, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "test", "test", 0, 0},
-        {Token::kAssignment, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kComma, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kColon, "test", "test", 0, 0},
-        {Token::TypeID, "test", "test", 0, 0},
-        {Token::kAssignment, "", "", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-        {Token::kIn, "test", "test", 0, 0},
-        {Token::ID, "test", "test", 0, 0},
-    });
-    try {
-        auto let1 = parser.ParseLet();
-        auto let2 = parser.ParseLet();
-        auto let3 = parser.ParseLet();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
-    } catch (exception& e) {
-        assert(false);
+    vector<vector<Token>> testCases = {
+        {
+            {Token::kLet, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kColon, "test", "test", 0, 0},
+            {Token::TypeID, "test", "test", 0, 0},
+            {Token::kIn, "test", "test", 0, 0},
+            {Token::ID, "test", "test", 0, 0}
+        },
+        {
+            {Token::kLet, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kColon, "test", "test", 0, 0},
+            {Token::TypeID, "test", "test", 0, 0},
+            {Token::kAssignment, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kIn, "test", "test", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+        },
+        {
+            {Token::kLet, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kColon, "test", "test", 0, 0},
+            {Token::TypeID, "test", "test", 0, 0},
+            {Token::kAssignment, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kComma, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kColon, "test", "test", 0, 0},
+            {Token::TypeID, "test", "test", 0, 0},
+            {Token::kAssignment, "", "", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+            {Token::kIn, "test", "test", 0, 0},
+            {Token::ID, "test", "test", 0, 0},
+        }};
+    for (auto& tc : testCases) {
+        Parser parser(testDiag, tc);
+        try {
+            parser.ParseLet();
+            testDiag.Output(cout);
+            assert(testDiag.Size() == 0);
+        } catch (exception& e) {
+            assert(false);
+        }
     }
 }
 
@@ -268,7 +242,7 @@ void TestParseBlock() {
             "case2",
             {
                 {Token::kOpenBrace, "test", "test", 0, 0},
-                {Token::ID, "test", "test", 0, 0},
+                {Token::String, "test", "test", 0, 0},
                 {Token::kSemiColon, "", "", 0, 0},
                 {Token::ID, "test", "test", 0, 0},
                 {Token::kSemiColon, "", "", 0, 0},
@@ -286,21 +260,17 @@ void TestParseBlock() {
         },
     };
     for (auto& tc : cases) {
-        cout<< tc.name <<endl;
-        try {
-            Parser parser(testDiag, tc.toks);
-            auto block = parser.ParseBlock();
-            if (tc.throwExp) assert(false);
-            testDiag.Output(cout);
-            assert(testDiag.Size() == 0);
-        } catch (exception& e) {
-            if (!tc.throwExp) assert(false);
-        }
+        diag::Diagnosis diag;
+        Parser parser(diag, tc.toks);
+        auto block = parser.ParseBlock();
+        diag.Output(cout);
+        assert(tc.emitError == (diag.Size() > 0));
     }
 }
 
 void TestParseIf() {
-    Parser parser(testDiag, {
+    diag::Diagnosis diag;
+    Parser parser(diag, {
         {Token::kIf, "test", "test", 0, 0},
         {Token::ID, "test", "test", 0, 0},
         {Token::kThen, "", "", 0, 0},
@@ -311,76 +281,74 @@ void TestParseIf() {
     });
     try {
         auto ifExpr = parser.ParseIf();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
+        diag.Output(cout);
+        assert(diag.Size() == 0);
     } catch (exception& e) {
         assert(false);
     }
 }
 
 void TestParseExpr() {
-    Parser parser(testDiag, {
+    diag::Diagnosis diag;
+    Parser parser(diag, {
         {Token::ID, "test", "test", 0, 0},
         {Token::kAdd, "", "", 0, 0},
         {Token::ID, "test", "test", 0, 0}
     });
     try {
         auto expr = parser.ParseExpr();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
+        diag.Output(cout);
+        assert(diag.Size() == 0);
     } catch (exception& e) {
         assert(false);
     }
 }
 
 void TestParseFormal() {
-    Parser parser(testDiag, {
+    diag::Diagnosis diag;
+    Parser parser(diag, {
         {Token::ID, "test", "test", 0, 0},
         {Token::kColon, "", "", 0, 0},
         {Token::TypeID, "test", "test", 0, 0}
     });
     try {
         auto formal = parser.ParseFormal();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
+        diag.Output(cout);
+        assert(diag.Size() == 0);
     } catch (exception& e) {
         assert(false);
     }
 }
 
 void TestParseFuncFeature() {
-    vector<Token> toks;
-    for (auto& featureToks : testFuncFeats) {
-        for (auto& tok : featureToks) {
-            toks.emplace_back(tok);
-        }
-    }
-    Parser parser(testDiag, toks);
-    try {
-        for (int i = 0; i < testFuncFeats.size(); i++) {
+    for (auto& toks : testFuncFeats) {
+        diag::Diagnosis diag;
+        Parser parser(diag, toks);
+        try {
             parser.ParseFuncFeature();
-            testDiag.Output(cout);
-            assert(testDiag.Size() == 0);
+            diag.Output(cout);
+            assert(diag.Size() == 0);
+        } catch (exception& e) {
+            cout<< e.what() <<endl;
+            assert(false);
         }
-    } catch (exception& e) {
-        cout<< e.what() <<endl;
-        assert(false);
     }
 }
 
 void TestParseFieldFeature() {
+    diag::Diagnosis diag;
     vector<Token> toks;
     for (auto& featureToks : testFieldFeats) {
         for (auto& tok : featureToks) {
             toks.emplace_back(tok);
         }
     }
-    Parser parser(testDiag, toks);
+    Parser parser(diag, toks);
     try {
         for (int i = 0; i < testFieldFeats.size(); i++) {
             parser.ParseFieldFeature();
-            testDiag.Output(cout);
-            assert(testDiag.Size() == 0);
+            diag.Output(cout);
+            assert(diag.Size() == 0);
         }
     } catch (exception& e) {
         assert(false);
@@ -388,15 +356,16 @@ void TestParseFieldFeature() {
 }
 
 void TestParseClass() {
+    diag::Diagnosis diag;
     vector<Token> toks;
     ConstructClassTokens(toks, true, testFuncFeats, testFieldFeats);
     ConstructClassTokens(toks, false, testFuncFeats, testFieldFeats);
-    Parser parser(testDiag, toks);
+    Parser parser(diag, toks);
     try {
         parser.ParseClass();
         parser.ParseClass();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
+        diag.Output(cout);
+        assert(diag.Size() == 0);
     } catch (exception& e) {
         cerr<< e.what() <<endl;
         assert(false);
@@ -404,13 +373,14 @@ void TestParseClass() {
 }
 
 void TestParseProgram() {
+    diag::Diagnosis diag;
     vector<Token> toks;
     ConstructClassTokens(toks, true, testFuncFeats, testFieldFeats);
     try {
-        Parser parser(testDiag, toks);
+        Parser parser(diag, toks);
         parser.ParseProgram();
-        testDiag.Output(cout);
-        assert(testDiag.Size() == 0);
+        diag.Output(cout);
+        assert(diag.Size() == 0);
     } catch (exception& e) {
         assert(false);
     }
@@ -678,8 +648,6 @@ int main() {
     TestMatchMultiple();
 
     TestParseID();
-    TestParseUnary();
-    TestParseBinary();
     TestParseNew();
     TestParseCall();
     TestParseAssign();

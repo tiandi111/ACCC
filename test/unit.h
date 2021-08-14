@@ -106,14 +106,12 @@ void TestMatchMultiple();
 struct ParserTestCase {
     string name;
     vector<Token> toks;
-    bool throwExp;
+    bool emitError;
 };
 
 void TestProgram();
 
 void TestParseID();
-void TestParseUnary();
-void TestParseBinary();
 void TestParseNew();
 void TestParseCall();
 void TestParseAssign();
