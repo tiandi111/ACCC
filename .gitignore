@@ -5,4 +5,4 @@ cmake-build-debug
 *.h.gch
 *.out
 *_data
-*.sh
+*exe
