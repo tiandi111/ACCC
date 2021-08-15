@@ -1,0 +1,10 @@
+
+
+class Main inherits IO {
+    main() : Object {
+        let b:Bool in {
+            b <- ~ True;
+        }
+    };
+
+};

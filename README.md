@@ -1,6 +1,11 @@
 ACCC (A C++ Cool Compiler)
 ---
 
+### Current Status (Updated at 2021-08-15 13:54:40)
+The frontend is almost done, ACCC can now parse simple Cool program and emit llvm IR code. Due to limited time budget and
+lack of compiler experience, the code does not strictly follows the best practise in Software Engineering and Compiler
+Development. But I will try my best to improve quality of the code in the future.
+
 ### Project Description
 ACCC is a C++ compiler for Cool (the Classroom Object-Oriented Language). The main purpose of this project is to
 familiarize myself with compiler architecture, principles and techniques. Hence, this compiler is implemented without
@@ -13,7 +18,10 @@ including objects, static typing, and automatic memory management. The language 
 [cool-manual](http://theory.stanford.edu/~aiken/software/cool/cool-manual.pdf).
 
 ### Installation & Use
-TODO
+Write your code in main_data file and run
+```shell script
+sh compile.sh
+```
 
 ### Development Status
 | Compiler Stage          |        Status       |
