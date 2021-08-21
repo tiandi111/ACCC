@@ -1,10 +1,14 @@
-
-
+*Main*
 class Main inherits IO {
     main() : Object {
-        let b:Bool in {
-            b <- ~ True;
+        let a:Int <- 4 in {
+            out_int(a);
+            if (a<6)
+            then out_int(0)
+            else out_int(1)
+            fi;
         }
+        --let a:Int in {a<=0;out_int(0);}
     };
 
 };

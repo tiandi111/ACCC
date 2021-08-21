@@ -4,7 +4,6 @@
 
 #include <stdexcept>
 #include <vector>
-#include <stack>
 #include <unordered_set>
 
 #include "parser.h"
@@ -244,7 +243,7 @@ diag::TextInfo Parser::GetTextInfo() {
 //  i.e., they only need to check valid nodes. for this reason, the checker need only checks expr,
 //  for any grammer that contains expr, the grammer parser itseld should filter out invalid exprs.
 Program* Parser::ParseProgram() {
-    auto prog = new Program(Peek().textInfo);
+    auto prog = new Program(Peek().textInfo, {});
 
     while (!Empty()) {
 
@@ -266,7 +265,7 @@ Program* Parser::ParseProgram() {
 }
 
 Class* Parser::ParseClass() {
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kClass), "unexpected call to ParseClass");
+    assert(ConsumeIfMatch(Token::kClass) && "unexpected call to ParseClass");
 
     auto cls = new Class();
 
@@ -319,8 +318,7 @@ Class* Parser::ParseClass() {
 FuncFeature* Parser::ParseFuncFeature() {
     auto feat = new FuncFeature();
 
-    PARSER_IF_FALSE_EXCEPTION(MatchMultiple({Token::ID, Token::kOpenParen}),
-        "unexpected call to ParseFuncFeature");
+    assert(MatchMultiple({Token::ID, Token::kOpenParen}) && "unexpected call to ParseFuncFeature");
     feat->SetName(StringAttr(ConsumeReturn()));
 
     int closeParenPos = ReturnValidParenMatchFor(Pos());
@@ -382,7 +380,7 @@ FuncFeature* Parser::ParseFuncFeature() {
 FieldFeature* Parser::ParseFieldFeature() {
     auto feat = new FieldFeature();
 
-    PARSER_IF_FALSE_EXCEPTION(Match(Token::ID), "unexpected call to ParseFieldFeature");
+    assert(Match(Token::ID) &&"unexpected call to ParseFieldFeature");
     feat->SetName(StringAttr(ConsumeReturn()));
 
     PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kColon),
@@ -620,7 +618,7 @@ Expr* Parser::ParseExpr() {
 If* Parser::ParseIf() {
     auto anIf = new If();
 
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kIf), "unexpected call to ParseIf");
+    assert(ConsumeIfMatch(Token::kIf) &&"unexpected call to ParseIf");
     auto expr = ParseExpr();
     PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, anIf->SetIfExpr(expr), anIf)
 
@@ -648,8 +646,6 @@ Block* Parser::ParseBlock() {
             else break;
 
             PARSER_IF_FALSE_EMIT_DIAG_RETURN(ConsumeIfMatch(Token::kSemiColon), "expected ';' after expression", blk);
-
-//            if (Match(Token::kCloseBrace)) break;
         }
 
         PARSER_IF_FALSE_EMIT_DIAG_RETURN(!exprs.empty(), "expected expression", blk);
@@ -691,7 +687,7 @@ Expr* Parser::ParseParen() {
 While* Parser::ParseWhile() {
     auto aWhile = new While();
 
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kWhile), "unexpected call to ParseWhile")
+    assert(ConsumeIfMatch(Token::kWhile) && "unexpected call to ParseWhile");
     auto expr = ParseExpr();
     PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, aWhile->SetWhileExpr(expr), aWhile)
 
@@ -706,7 +702,7 @@ While* Parser::ParseWhile() {
 Let* Parser::ParseLet() {
     auto let = new Let();
 
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kLet), "unexpected call to ParseLet")
+    assert(ConsumeIfMatch(Token::kLet) &&"unexpected call to ParseLet");
 
     auto parseDecl = [&](){
         auto decl = new Let::Decl();
@@ -747,7 +743,7 @@ Let* Parser::ParseLet() {
 Case* Parser::ParseCase() {
     auto aCase = new Case();
 
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kCase), "expected keyword 'case'")
+    assert(ConsumeIfMatch(Token::kCase) && "expected keyword 'case'");
     auto expr = ParseExpr();
     PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, aCase->SetExpr(expr), aCase);
 
@@ -807,7 +803,7 @@ Assign* Parser::ParseAssign() {
     auto id = ParseID();
     PARSER_CHECK_STAT_IF_FALSE_RETURN(id, assign->SetId(id), assign)
 
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kAssignment), "unexpected call to ParseAssign")
+    assert(ConsumeIfMatch(Token::kAssignment) && "unexpected call to ParseAssign");
 
     auto expr = ParseExpr();
     PARSER_CHECK_STAT_IF_FALSE_RETURN(expr, assign->SetExpr(expr), assign);
@@ -847,7 +843,7 @@ Call* Parser::ParseCall() {
 
 New* Parser::ParseNew() {
     auto aNew = new New();
-    PARSER_IF_FALSE_EXCEPTION(ConsumeIfMatch(Token::kNew), "unexpected call to ParseNew");
+    assert(ConsumeIfMatch(Token::kNew) &&"unexpected call to ParseNew");
 
     // one common programing mistake is use ID instead of TypeID
     // here we consume any non-TypeID token to recover from this kind of mistake

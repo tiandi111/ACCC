@@ -537,9 +537,10 @@ repr::Program* ana::TypeChecking::operator()(repr::Program* prog, pass::PassCont
         TypeName Visit_(repr::If& expr) {
             if (ExprVisitor<TypeName>::Visit(*expr.GetIfExpr()) != CLS_BOOL_NAME)
                 ctx.diag.EmitError(expr.GetIfExpr()->GetTextInfo(), "predicate in if statement must be 'Bool'");
-            return typeAdvisor.LeastCommonAncestor(
+            expr.SetType(typeAdvisor.LeastCommonAncestor(
                 ExprVisitor<TypeName>::Visit(*expr.GetThenExpr()),
-                ExprVisitor<TypeName>::Visit(*expr.GetElseExpr()));
+                ExprVisitor<TypeName>::Visit(*expr.GetElseExpr())));
+            return expr.GetType();
         }
 
         TypeName Visit_(repr::LessThanOrEqual& expr) {
@@ -657,7 +658,10 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
 
         void Visit(repr::FieldFeature &feat) {
             if (feat.GetType().Value() == TYPE_SELF_TYPE)
-                feat.SetType({stable.GetClass()->GetName().Value(), feat.GetType().TextInfo()});
+                feat.SetType({
+                    stable.GetClass()->GetName().Value(),
+                    feat.GetType().TextInfo()
+                });
             if (feat.GetExpr())
                 Visit(*feat.GetExpr());
         }
@@ -690,7 +694,7 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
 
         void Visit_(repr::Block& expr) {
             ENTER_SCOPE_GUARD(stable, {
-                for (int i = 0; i < expr.GetExprs().size() - 1; i++)
+                for (int i = 0; i < expr.GetExprs().size(); i++)
                     Visit(*expr.GetExprs().at(i));
             })
         }
@@ -739,6 +743,8 @@ repr::Program* ana::EliminateSelfType::operator()(repr::Program* prog, pass::Pas
             Visit(*expr.GetIfExpr());
             Visit(*expr.GetThenExpr());
             Visit(*expr.GetElseExpr());
+            if (expr.GetType() == TYPE_SELF_TYPE)
+                expr.SetType(stable.GetClass()->GetName().Value());
         }
 
         void Visit_(repr::LessThanOrEqual& expr) {

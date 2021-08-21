@@ -31,6 +31,10 @@ int main() {
 
     Diagnosis diagnosis;
     Tokenizer tokenizer(diagnosis);
+    if (!diagnosis.Empty()) {
+        diagnosis.Output(cerr);
+        return 0;
+    }
     Parser parser(diagnosis, tokenizer.Tokenize("main_data", file));
     auto prog = parser.ParseProgram();
     if (!diagnosis.Empty()) {

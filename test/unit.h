@@ -130,12 +130,14 @@ void TestParseProgram();
 struct TokComponentTestCase {
     string str;
     Token tok;
+    bool emitDiag;
 };
 
 void TestTokDigit();
 void TestTokAlpha();
 void TestTokString();
 void TestTokSpecial();
+void TestTokComment();
 
 struct TokenizerTestCase {
     string str;

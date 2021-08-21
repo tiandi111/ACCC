@@ -3,6 +3,7 @@
 //
 
 #include <algorithm>
+#include <sstream>
 #include <unordered_map>
 
 #include "cctype"
@@ -133,7 +134,7 @@ Token Tokenizer::TokString(istream& in) {
     pos++;
     string str;
     bool easc = false;
-    while (in.good() && in.peek() != EOF) {
+    while (in.good()) {
         if (easc) {
             str += char(in.get());
             easc = false;
@@ -186,12 +187,53 @@ Token Tokenizer::TokSpecial(istream& in) {
     }
 }
 
+Token Tokenizer::TokComment(istream& in) {
+    char c = in.get();
+    pos++;
+
+    auto ReadUntil = [this, &in](char target) {
+        stringstream buf;
+        while (in.good()) {
+            char next = in.get();
+            pos++;
+            if (next == target || in.eof())
+                break;
+            buf << next;
+        }
+        return buf.str();
+    };
+
+    if (c == '-') {
+
+        if (!in.good())
+            throw runtime_error("read from istream failed: ");
+
+        if (in.get() != '-' && ++pos) {
+            diag.EmitError(line, pos, "use '--' for comment");
+            return Token(Token::SKIP, "", "",
+                line, pos, fileno);
+        }
+
+        return Token(Token::Comment, ReadUntil('\n'),
+            "", line, pos, fileno);
+
+    } else if (c == '*') {
+
+        return Token(Token::Comment, ReadUntil('*'),
+                     "", line, pos, fileno);
+    } else {
+        assert(false && "unexpected call to TokComment");
+    }
+}
+
 vector<Token> Tokenizer::Tokenize(const string& file, istream& in) {
     fileno = FileMapper::GetFileNo(file);
     vector<Token> toks;
 
-    while (in.good() && in.peek() != EOF) {
+    while (in.good()) {
         char c = in.peek();
+        if (c == EOF)
+            break;
 
         if (isdigit(c)) {
             toks.emplace_back(TokDigit(in));
@@ -199,6 +241,11 @@ vector<Token> Tokenizer::Tokenize(const string& file, istream& in) {
             toks.emplace_back(TokAlpha(in));
         } else if (c == '"') {
             toks.emplace_back(TokString(in));
+        } else if (c == '-' || c == '*') {
+            // To utilize our current parser implementation, skip
+            // comment tokens now, we may need to associate comment
+            // with program, classes or functions in the future.
+            TokComment(in);
         } else if (isspace(c)) {
             if (c == '\n') {
                 line++;
@@ -207,10 +254,13 @@ vector<Token> Tokenizer::Tokenize(const string& file, istream& in) {
             in.ignore(1);
         } else {
             auto tok = TokSpecial(in);
-            if (!tok.Skip()) toks.emplace_back(tok);
+            if (!tok.Skip())
+                toks.emplace_back(tok);
         }
 
     }
+
+    // todo: check and report in.bad()
 
     return toks;
 }

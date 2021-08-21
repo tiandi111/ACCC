@@ -39,10 +39,11 @@ using namespace irgen;
 using namespace llvm;
 using namespace constant;
 
-/*-------------------------------------*/
-/* Symbol Table For LLVM IR Generator  */
-/*-------------------------------------*/
-LLVMGen::SymbolTable::SymbolTable(adt::ScopedTableSpecializer<adt::SymbolTable> &_stable)
+//======================================================================//
+//                       SymbolTable Class                              //
+//======================================================================//
+LLVMGen::SymbolTable::SymbolTable(
+    adt::ScopedTableSpecializer<adt::SymbolTable> &_stable)
 : stable(_stable) {
     for (int i = 0; i < stable.Size(); i++) valueTable.insert({i, {}});
     stable.InitTraverse();
@@ -58,11 +59,13 @@ llvm::Value* LLVMGen::SymbolTable::get(const string& name) {
     return nullptr;
 }
 
-void LLVMGen::SymbolTable::insert(const string& name, llvm::Value* value) {
+void LLVMGen::SymbolTable::insert(const string& name,
+    llvm::Value* value) {
     valueTable.at(stable.Idx()).insert({name, value});
 }
 
-void LLVMGen::SymbolTable::InsertLocalVar(const string& name, llvm::Value* value) {
+void LLVMGen::SymbolTable::InsertLocalVar(const string& name,
+    llvm::Value* value) {
     insert(name, value);
 }
 
@@ -70,24 +73,31 @@ void LLVMGen::SymbolTable::InsertSelfVar(llvm::Value* value) {
     insert("self", value);
 }
 
-void LLVMGen::SymbolTable::InsertArg(const string& name, llvm::Value* value) {
+void LLVMGen::SymbolTable::InsertArg(const string& name,
+    llvm::Value* value) {
     insert(name, value);
 }
 
-llvm::Value * LLVMGen::SymbolTable::GetLocalVar(const string &name) { return get(name); }
+llvm::Value * LLVMGen::SymbolTable::GetLocalVar(const string &name) {
+    return get(name);
+}
 
-llvm::Value * LLVMGen::SymbolTable::GetSelfVar() { return get("self"); }
+llvm::Value * LLVMGen::SymbolTable::GetSelfVar() {
+    return get("self");
+}
 
 llvm::Value * LLVMGen::SymbolTable::GetSelfField(uint32_t i) {
     assert(false);
     return nullptr;
 }
 
-llvm::Value * LLVMGen::SymbolTable::GetArg(const string &name) { return get(name); }
+llvm::Value * LLVMGen::SymbolTable::GetArg(const string &name) {
+    return get(name);
+}
 
-/*-------------------------------------*/
-/*          LLVM IR Generator          */
-/*-------------------------------------*/
+//======================================================================//
+//                       LLVM IR Generator                              //
+//======================================================================//
 LLVMGen::LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& _stable)
 : stable(_stable), llvmStable(_stable), os(cerr) {
     // initialize fields
@@ -110,7 +120,12 @@ LLVMGen::LLVMGen(adt::ScopedTableSpecializer<adt::SymbolTable>& _stable)
 
     TargetOptions opt;
     auto RM = Optional<Reloc::Model>();
-    target = unique_ptr<TargetMachine>(Target->createTargetMachine(TargetTriple, CPU, Features, opt, RM));
+    target = unique_ptr<TargetMachine>(
+        Target->createTargetMachine(
+            TargetTriple,
+            CPU, Features,
+            opt,
+            RM));
 
     module->setDataLayout(target->createDataLayout());
     module->setTargetTriple(TargetTriple);
@@ -143,21 +158,27 @@ StructType* LLVMGen::CreateOpaqueStructTypeIfNx(const string &name) {
 }
 
 PointerType* LLVMGen::CreateStructPointerTypeIfNx(const string& name) {
-    return PointerType::get(CreateOpaqueStructTypeIfNx(name), 0);
+    return PointerType::get(
+        CreateOpaqueStructTypeIfNx(name), 0);
 }
 
 llvm::PointerType* LLVMGen::GetStringLLVMType() {
     StructType *st = CreateOpaqueStructTypeIfNx(CLS_STRING_NAME);
 
 //    if(st->isOpaque()) todo: this line cause Assersion failed, check the reason
-    st->setBody({Type::getInt32Ty(*context), PointerType::getInt8PtrTy(*context)});
+        st->setBody({
+            Type::getInt32Ty(*context),
+            PointerType::getInt8PtrTy(*context)
+        });
     return PointerType::get(st, 0);
 }
 
 llvm::Value* LLVMGen::AllocLLVMConstStringStruct(const string& str) {
     auto dataOffset = module->
         getDataLayout().
-        getStructLayout(cast<StructType>(GetStringLLVMType()->getPointerElementType()))->
+        getStructLayout(cast<StructType>(
+            GetStringLLVMType()->getPointerElementType())
+        )->
         getElementOffset(1);
 
     // create data
@@ -166,20 +187,36 @@ llvm::Value* LLVMGen::AllocLLVMConstStringStruct(const string& str) {
         chars.emplace_back(ConstInt8(c));
     chars.emplace_back(ConstInt8('\0'));
 
-    auto strPtr = CreateMallocCall(chars.size() + dataOffset, GetStringLLVMType());
+    GetStringLLVMType();
+
+    auto strPtr = CreateMallocCall(
+        chars.size() + dataOffset,
+        GetStringLLVMType());
 
     // set size pointer
-    auto sizeFieldPtr = builder->CreateGEP(strPtr, ConstInt32s({0, 0}));
-    builder->CreateStore(ConstInt32(chars.size() - 1), sizeFieldPtr);
+    auto sizeFieldPtr = builder->CreateGEP(
+        strPtr,
+        ConstInt32s({0, 0}));
+    builder->CreateStore(
+        ConstInt32(chars.size() - 1),
+        sizeFieldPtr);
 
     // set data pointer
-    auto constData = ConstantArray::get(ArrayType::get(Type::getInt8Ty(*context), chars.size()), chars);
-    auto dataFieldPtr = builder->CreateGEP(strPtr, ConstInt32s({0, 1}));
+    auto constData = ConstantArray::get(
+        ArrayType::get(
+            Type::getInt8Ty(*context),
+            chars.size()),
+            chars);
+    auto dataFieldPtr = builder->CreateGEP(
+        strPtr,
+        ConstInt32s({0, 1}));
 
     auto dataMemAddr = builder->CreatePointerCast(
         dataFieldPtr,
         PointerType::get(
-            ArrayType::get(Type::getInt8Ty(*context),chars.size()),
+            ArrayType::get(
+                Type::getInt8Ty(*context),
+                chars.size()),
                 0)
         );
     builder->CreateStore(constData, dataMemAddr);
@@ -188,14 +225,26 @@ llvm::Value* LLVMGen::AllocLLVMConstStringStruct(const string& str) {
 }
 
 Type* LLVMGen::GetLLVMType(const string& name) {
-    if (name == CLS_INT_NAME) {
+    if (name == CLS_INT_NAME)
         return Type::getInt32Ty(*context);
-    } else if (name == CLS_BOOL_NAME) {
+    if (name == CLS_BOOL_NAME)
         return Type::getInt32Ty(*context);
-    } else if (name == CLS_STRING_NAME) {
+    if (name == CLS_STRING_NAME)
         return GetStringLLVMType();
-    }
     return CreateStructPointerTypeIfNx(name);
+}
+
+llvm::Value* LLVMGen::GetPointedValueIfAPointer(llvm::Value* value) {
+    Type* type = value->getType();
+    // Int, Bool literals
+    if (!type->isPointerTy())
+        return value;
+    // literals of other types
+    if (type->getPointerElementType() != Type::getInt32Ty(*context)
+    && !type->getPointerElementType()->isPointerTy())
+        return value;
+    // variables
+    return builder->CreateLoad(value);
 }
 
 bool LLVMGen::IsMappedToLLVMStructPointerType(const string& type) {
@@ -203,15 +252,17 @@ bool LLVMGen::IsMappedToLLVMStructPointerType(const string& type) {
 }
 
 bool LLVMGen::IsStringLLVMType(llvm::Value* v) {
-    return v->getType()->isPointerTy() && v->getType()->getPointerElementType()->getStructName() == CLS_STRING_NAME;
+    return v->getType()->isPointerTy()
+    && v->getType()->getPointerElementType()->getStructName()
+    == CLS_STRING_NAME;
 }
 
 string LLVMGen::FunctionName(const string& name, const string& selfType) {
     return selfType + "_" + name;
 }
 
-Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type, const string& selfType,
-    vector<Formal*> args) {
+Function* LLVMGen::CreateFunctionDeclIfNx(const string& name,
+    const string& type, const string& selfType, vector<Formal*> args) {
     auto funcName = FunctionName(name, selfType);
 
     auto function = module->getFunction(funcName);
@@ -221,9 +272,11 @@ Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type
     for(auto& arg : args)
         argTypes.emplace_back(GetLLVMType(arg->GetType().Value()));
 
-    FunctionType* ft = FunctionType::get(GetLLVMType(type), argTypes, false);
+    FunctionType* ft = FunctionType::get(GetLLVMType(type),
+        argTypes, false);
 
-    function = Function::Create(ft, Function::ExternalLinkage, funcName, module.get());
+    function = Function::Create(ft, Function::ExternalLinkage,
+        funcName, module.get());
 
     unsigned idx = 0;
     for (auto& arg : function->args()) {
@@ -240,8 +293,15 @@ Function* LLVMGen::CreateFunctionDeclIfNx(const string& name, const string& type
 llvm::Function* LLVMGen::CreateFunctionMain() {
     if (auto function = module->getFunction(CG_FUNC_COOL_MAIN_NAME))
         return function;
-    FunctionType* ft = FunctionType::get(Type::getVoidTy(*context), {}, false);
-    return Function::Create(ft, Function::ExternalLinkage, CG_FUNC_COOL_MAIN_NAME, module.get());
+    FunctionType* ft = FunctionType::get(
+        Type::getVoidTy(*context),
+        {},
+        false);
+    return Function::Create(
+        ft,
+        Function::ExternalLinkage,
+        CG_FUNC_COOL_MAIN_NAME,
+        module.get());
 }
 
 void LLVMGen::CreateRuntimeFunctionDecls() {
@@ -259,27 +319,32 @@ void LLVMGen::CreateRuntimeFunctionDecls() {
 
     // runtime/runtime.h: int entry();
     ft = FunctionType::get(int32Type, false);
-    Function::Create(ft, Function::ExternalLinkage, "entry", module.get());
+    Function::Create(ft, Function::ExternalLinkage,
+        "entry", module.get());
 
     // runtime/runtime.h: void* mallocool(uint64_t size);
     args = {int64Type};
     ft = FunctionType::get(voidPointerType, args,false);
-    Function::Create(ft, Function::ExternalLinkage, "mallocool", module.get());
+    Function::Create(ft, Function::ExternalLinkage,
+        "mallocool", module.get());
 
     // runtime/runtime.h: void* out_int(int32_t i);
     args = {int32Type};
     ft = FunctionType::get(voidPointerType, args, false);
-    Function::Create(ft, Function::ExternalLinkage, "out_int", module.get());
+    Function::Create(ft, Function::ExternalLinkage,
+        "out_int", module.get());
 
     // runtime/runtime.h: void* out_string(char* str);
     args = {int8Ptr};
     ft = FunctionType::get(voidPointerType, args, false);
-    Function::Create(ft, Function::ExternalLinkage, "out_string", module.get());
+    Function::Create(ft, Function::ExternalLinkage,
+        "out_string", module.get());
 
     // runtime/runtime.h: void print_ptr(void*);
     args = {voidPointerType};
     ft = FunctionType::get(voidPointerType, args, false);
-    Function::Create(ft, Function::ExternalLinkage, "print_ptr", module.get());
+    Function::Create(ft, Function::ExternalLinkage,
+        "print_ptr", module.get());
 }
 
 llvm::Value* LLVMGen::DefaultNewOperator(const string& type) {
@@ -288,7 +353,10 @@ llvm::Value* LLVMGen::DefaultNewOperator(const string& type) {
     }
     if (type == CLS_BOOL_NAME) {
         auto f = ConstantInt::getFalse(Type::getInt32Ty(*context));
-        return builder->CreateIntCast(f, Type::getInt32Ty(*context), true);
+        return builder->CreateIntCast(
+            f,
+            Type::getInt32Ty(*context),
+            true);
     }
     if (type == CLS_STRING_NAME) {
         return AllocLLVMConstStringStruct("");
@@ -306,8 +374,13 @@ llvm::Function* LLVMGen::CreateNewOperatorDeclIfNx(const string& type) {
     assert(!type.empty() && isupper(type.at(0)));
     auto function = module->getFunction(type);
     if (!function) {
-        FunctionType* ft = FunctionType::get(GetLLVMType(type), false);
-        function = Function::Create(ft, Function::ExternalLinkage, type, module.get());
+        FunctionType* ft = FunctionType::get(
+            GetLLVMType(type),false);
+        function = Function::Create(
+            ft,
+            Function::ExternalLinkage,
+            type,
+            module.get());
     }
     return function;
 }
@@ -326,13 +399,17 @@ llvm::Function* LLVMGen::CreateNewOperatorBody(Class &cls) {
 
     // malloc
     uint32_t size = cls.GetFieldFeatures().size() * 4;
-    auto ptr = CreateMallocCall(size, CreateStructPointerTypeIfNx(cls.GetName().Value()));
+    auto ptr = CreateMallocCall(
+        size,
+        CreateStructPointerTypeIfNx(cls.GetName().Value()));
 
     // init fields
     uint32_t i = 0;
     for (auto& field : cls.GetFieldFeatures()) {
         Value* value;
-        Value* fieldPtr = builder->CreateGEP(ptr, ConstInt32s({0, i++}));
+        Value* fieldPtr = builder->CreateGEP(
+            ptr,
+            ConstInt32s({0, i++}));
         if (field->GetExpr())
             value = Visit(*field->GetExpr());
         else
@@ -355,11 +432,22 @@ llvm::Value* LLVMGen::CreateMallocCall(int size, llvm::Type* ptrType) {
     return builder->CreatePointerCast(orgPtr, ptrType);
 }
 
+llvm::Value* LLVMGen::CreateICmpAsCoolBool(
+    llvm::CmpInst::Predicate p, llvm::Value* left, llvm::Value* right) {
+    return builder->CreateIntCast(
+        builder->CreateICmp(p,
+            GetPointedValueIfAPointer(left),
+            GetPointedValueIfAPointer(right)),
+        Type::getInt32Ty(*context),
+        false);
+}
+
 void LLVMGen::PrintPointer(llvm::Value* value) {
     builder->CreateCall(
         module->getFunction("print_ptr"),
-        {builder->CreatePointerCast(value, Type::getInt32PtrTy(*context))}
-    );
+        {builder->CreatePointerCast(
+            value,
+            Type::getInt32PtrTy(*context))});
 }
 
 void LLVMGen::DumpTextualIR(const string &filename) {
@@ -446,15 +534,16 @@ Value * LLVMGen::Visit(FuncFeature &feat) {
             builder->SetInsertPoint(bb);
             auto selfVar = CreateNewOperatorCall(CLS_MAIN_NAME);
             llvmStable.InsertSelfVar(selfVar);
-//          note: don't do this! we have added llvm::Value*-s in Visit function call
-//                insert twice cause memory problem!!
+//          note: don't do this! we have added llvm::Value*-s in Visit
+//          function call insert twice cause memory problem!!
 //            builder->Insert(Visit(*feat.GetExpr()));
             Visit(*feat.GetExpr());
             builder->CreateRetVoid();
 
         } else {
 
-            auto funcName = FunctionName(feat.GetName().Value(), stable.GetClass()->GetName().Value());
+            auto funcName = FunctionName(feat.GetName().Value(),
+                stable.GetClass()->GetName().Value());
             function = module->getFunction(funcName);
 
             if (!function)
@@ -515,11 +604,10 @@ Value* LLVMGen::Visit_(repr::LinkBuiltin& expr) {
     return ret;
 }
 
-// todo: this code 'let a:Int in { a<-a; }' generates bug
 Value* LLVMGen::Visit_(repr::Assign& expr) {
-    Value* value = Visit(*expr.GetExpr());
-    builder->CreateStore(value, Visit(*expr.GetId()));
-    return value;
+    return builder->CreateStore(
+        GetPointedValueIfAPointer(Visit(*expr.GetExpr())),
+        Visit(*expr.GetId()));
 }
 
 Value* LLVMGen::Visit_(repr::Add& expr) {
@@ -562,10 +650,10 @@ Value* LLVMGen::Visit_(repr::Equal& expr) {
     }
     if (left->getType()->isIntegerTy()) {
         if (!right->getType()->isIntegerTy()) throw runtime_error("");
-        return builder->CreateICmpEQ(left, right);
+        return CreateICmpAsCoolBool(llvm::CmpInst::ICMP_EQ, left, right);
     }
     assert(left->getType()->isPointerTy() && right->getType()->isPointerTy());
-    return builder->CreateICmpEQ(left, right);
+    return CreateICmpAsCoolBool(llvm::CmpInst::ICMP_EQ, left, right);
 }
 
 Value* LLVMGen::Visit_(repr::False& expr) {
@@ -600,22 +688,52 @@ Value* LLVMGen::Visit_(repr::Integer& expr) {
 }
 
 Value* LLVMGen::Visit_(repr::If& expr) {
-    // todo
+    Function* function = builder->GetInsertBlock()->getParent();
+    BasicBlock* thenBB = BasicBlock::Create(*context);
+    BasicBlock* elseBB = BasicBlock::Create(*context);
+    BasicBlock* mergeBB = BasicBlock::Create(*context);
+
+    // gen if predicate
+    Value* condValue = builder->CreateICmpSGE(
+        Visit(*expr.GetIfExpr()),
+        ConstInt32(1));
+    builder->CreateCondBr(condValue, thenBB, elseBB);
+
+    // gen then block
+    function->getBasicBlockList().push_back(thenBB);
+    builder->SetInsertPoint(thenBB);
+    auto thenValue = Visit(*expr.GetThenExpr());
+    builder->CreateBr(mergeBB);
+
+    // gen else block
+    function->getBasicBlockList().push_back(elseBB);
+    builder->SetInsertPoint(elseBB);
+    auto elseValue = Visit(*expr.GetElseExpr());
+    builder->CreateBr(mergeBB);
+
+    // gen merge block (return block)
+    function->getBasicBlockList().push_back(mergeBB);
+    builder->SetInsertPoint(mergeBB);
+    auto phi = builder->CreatePHI(GetLLVMType(expr.GetType()), 2);
+    phi->addIncoming(thenValue, thenBB);
+    phi->addIncoming(elseValue, elseBB);
     return nullptr;
 }
 
 Value* LLVMGen::Visit_(repr::LessThanOrEqual& expr) {
-    return builder->CreateICmp(
+    return CreateICmpAsCoolBool(
         CmpInst::ICMP_SLE,
         Visit(*expr.GetLeft()),
-        Visit(*expr.GetRight()));
+        Visit(*expr.GetRight())
+        );
 }
 
 Value* LLVMGen::Visit_(repr::LessThan& expr) {
-    return builder->CreateICmp(
+    return CreateICmpAsCoolBool(
         CmpInst::ICMP_SLT,
         Visit(*expr.GetLeft()),
-        Visit(*expr.GetRight()));
+        Visit(*expr.GetRight())
+    );
 }
 
 Value* LLVMGen::Visit_(repr::Let& expr) {
@@ -623,7 +741,7 @@ Value* LLVMGen::Visit_(repr::Let& expr) {
         Value* value;
         // note: alloca is a pointer points to pointer of type 'formal.GetType().Value()'
         auto type = GetLLVMType(decl.GetType().Value());
-        auto alloca = builder->CreateAlloca(type, nullptr, decl.GetName().Value());
+        auto alloca = builder->CreateAlloca(type, nullptr);
         if (decl.GetExpr())
             value = Visit(*decl.GetExpr());
         else

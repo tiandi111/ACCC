@@ -57,16 +57,6 @@ public:
         return j.at(title).get<Test>();
     }
 };
-
-// todo
-class IntegrationTestSuite {
-protected:
-    IntegrationTestLoader testLoader;
-
-public:
-
-};
-
 } // namespace integration
 
 } // namespace cool

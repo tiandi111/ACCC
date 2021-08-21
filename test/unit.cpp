@@ -27,7 +27,7 @@ using namespace tok;
 Diagnosis testDiag;
 
 void TestProgram() {
-    Program prog = {{}};
+    Program prog = {{}, {}};
 
     Class cls1 = {{"test"}, {"p1"}, {}, {}};
 
@@ -461,6 +461,31 @@ void TestTokSpecial() {
     }
 }
 
+void TestTokComment() {
+    Diagnosis diag;
+    vector<TokComponentTestCase> cases = {
+        {"--abc\n", {Token::Comment, "abc", "", 0, 0},
+         false},
+        {"-abc\n", {Token::SKIP, "abc", "", 0, 0},
+         true},
+        {"*abc*", {Token::Comment, "abc", "", 0, 0},
+            false},
+        {"*ab*c*", {Token::Comment, "ab", "", 0, 0},
+            false},
+    };
+    for (auto& c : cases) {
+        stringstream sstream;
+        sstream<< c.str;
+        Tokenizer tokenizer(diag);
+        auto tok = tokenizer.TokComment(sstream);
+        assert(tok.type == c.tok.type
+        && tok.str == c.tok.str
+        && tok.val == c.tok.val
+        && (c.emitDiag == !diag.Empty())
+        );
+    }
+}
+
 void TestTokenizer() {
     vector<TokenizerTestCase> cases = {
         {"class B {\n"
@@ -669,6 +694,7 @@ int main() {
     TestTokString();
     TestTokSpecial();
     TestTokenizer();
+    TestTokComment();
 
     TestRegisterPass();
     TestRequiredPass();

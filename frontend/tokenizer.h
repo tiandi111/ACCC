@@ -41,6 +41,7 @@ class Tokenizer {
     Token TokAlpha(istream& in);
     Token TokString(istream& in);
     Token TokSpecial(istream& in);
+    Token TokComment(istream& in);
 };
 
 } // namespace cool

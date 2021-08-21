@@ -20,24 +20,35 @@ namespace cool {
     
 namespace repr {
 
-// note: provide copy constructor when there're dynamic memory allocations,
-//  otherwise, the default copy constructor is enough
+//======================================================================//
+// Lesson Learned:                                                      //
+// Provide copy constructor when there're dynamic memory allocations.   //
+// In other cases, the default constructor is enough.                   //
+//======================================================================//
 
-// note: method defined in class definition is "inlined" as default
+//======================================================================//
+// Lesson Learned:                                                      //
+// Methods defined in class definition is 'inlined' as default.         //
+//======================================================================//
 
-// todo: provide move ctor
-// todo: provide deep copier
+//======================================================================//
+// Lesson Learned:                                                      //
+// Virtual functions with return type as shared_ptr<Base> cannot be     //
+// override by functions with return type as shared_ptr<Derived>.       //
+// This is called "Covariant Return Type" in C++. Raw pointers are      //
+// covariant.                                                           //
+//======================================================================//
 
-// todo: is shared_ptr necessary?
-//  problem: virtual functions with return type as shared_ptr<Base> cannot be
-//      overriden with shared_ptr<Derived>
-
+//======================================================================//
+//                             Attr  Class                              //
+//======================================================================//
 class Attr {
   private:
     diag::TextInfo textInfo;
 
   public:
-    Attr(int _line = -1, int _pos = -1, int _fileno = -1) : textInfo({_line, _pos, _fileno}) {}
+    Attr(int _line = -1, int _pos = -1, int _fileno = -1)
+    : textInfo({_line, _pos, _fileno}) {}
 
     Attr(const diag::TextInfo& _textInfo) : textInfo(_textInfo) {}
 
@@ -46,6 +57,9 @@ class Attr {
     diag::TextInfo TextInfo() const { return textInfo; }
 };
 
+//======================================================================//
+//                         StringAttr  Class                            //
+//======================================================================//
 class StringAttr : public Attr {
   private:
     string val;
@@ -53,10 +67,12 @@ class StringAttr : public Attr {
   public:
     StringAttr() = default;
 
-    StringAttr(const string& _val, int _line = -1, int _pos = -1, int _fileno = -1)
+    StringAttr(const string& _val, int _line = -1,
+        int _pos = -1,int _fileno = -1)
     : val(_val), Attr(_line, _pos, _fileno) {}
 
-    StringAttr(const tok::Token& token) : val(token.str), Attr(token.textInfo) {}
+    StringAttr(const tok::Token& token)
+    : val(token.str), Attr(token.textInfo) {}
 
     StringAttr(const string& _val, const diag::TextInfo& _textInfo)
     : val(_val), Attr(_textInfo) {}
@@ -65,9 +81,12 @@ class StringAttr : public Attr {
 
     void SetValue(const string& _val) { val = _val; }
 
-    inline bool Empty() const { return val.empty(); }
+    bool Empty() const { return val.empty(); }
 };
 
+//======================================================================//
+//                          IntAttr  Class                              //
+//======================================================================//
 class IntAttr : public Attr {
   private:
     int val;
@@ -79,7 +98,8 @@ class IntAttr : public Attr {
     : val(_val), Attr(_line, _pos, _fileno) {}
 
     IntAttr(const tok::Token& token) : Attr(token.textInfo) {
-        if (token.type != tok::Token::Integer) throw runtime_error("");
+        assert ((token.type == tok::Token::Integer)
+        && "token type must be Integer");
         val = stoi(token.str);
     }
 
@@ -104,15 +124,24 @@ class IntAttr : public Attr {
     Type(const Type&) = delete;\
     Type& operator=(const Type&) = delete;\
 
-// note:
-//  Templates are all about the compiler generating code at compile-time.
-//  Virtual functions are all about the run-time system figuring out which function to call at run-time.
+//======================================================================//
+// Lesson Learned:                                                      //
+// Templates are all about the compiler generating code at compile-time.//
+// Virtual functions are all about the run-time system figuring out     //
+// which function to call at run-time.                                  //
+//======================================================================//
 
-// note: It is necessary to differentiate owning pointer and non-owning pointer.
-// Owning pointer is a pointer that needs to be deleted by its owner.
-// For owning pointer, it is better to use smart pointer to manage its life cycle.
-// For non-owning pointer, raw pointer is okay.
+//======================================================================//
+// Lesson Learned:                                                      //
+// It is necessary to differentiate owning pointer and non-owning pointer/
+// Owning pointer is a pointer that needs to be deleted by its owner.   //
+// For owning pointer, it is better to use smart pointer to manage its  //
+// life cycle. For non-owning pointer, raw pointer is okay.             //
+//======================================================================//
 
+//======================================================================//
+//                             Repr  Class                              //
+//======================================================================//
 // todo: attach original token with repr
 class Repr {
   public:
@@ -121,12 +150,19 @@ class Repr {
     virtual Repr* Clone() = 0;
 };
 
+
+//======================================================================//
+//                           Expr  Class                                //
+//======================================================================//
 class Expr : public Repr {
   public:
     virtual ~Expr() = default;
     virtual Expr* Clone() = 0;
 };
 
+//======================================================================//
+//                           Formal  Class                              //
+//======================================================================//
 class Formal : public Repr {
   private:
     StringAttr name;
@@ -138,14 +174,17 @@ class Formal : public Repr {
     Formal(const StringAttr& _name, const StringAttr& _type)
     : name(_name), type(_type) {}
 
-    Formal* Clone() { return new Formal(name, type); }
+    Formal* Clone() final { return new Formal(name, type); }
 
-    inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Name, name)
     COOL_REPR_SETTER_GETTER(StringAttr, Type, type)
 };
 
+//======================================================================//
+//                        LinkBuiltin  Class                            //
+//======================================================================//
 class LinkBuiltin : public Expr {
   private:
     string name;
@@ -155,14 +194,15 @@ class LinkBuiltin : public Expr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(LinkBuiltin)
 
-    LinkBuiltin(const string& _name, const string& _type, vector<string> _params)
+    LinkBuiltin(const string& _name, const string& _type,
+        const vector<string>& _params)
     : name(_name), type(_type), params(move(_params)) {}
 
-    LinkBuiltin* Clone() {
+    LinkBuiltin* Clone() final {
         return new LinkBuiltin(name, type, params);
     }
 
-    inline diag::TextInfo GetTextInfo() const final {
+    diag::TextInfo GetTextInfo() const final {
         return diag::TextInfo{};
     }
 
@@ -171,6 +211,9 @@ class LinkBuiltin : public Expr {
     COOL_REPR_SETTER_GETTER(vector<string>, Params, params)
 };
 
+//======================================================================//
+//                             ID  Class                                //
+//======================================================================//
 class ID : public Expr {
   private:
     StringAttr name;
@@ -180,17 +223,20 @@ class ID : public Expr {
 
     ID(const StringAttr& _name) : name(_name) {}
 
-    ID* Clone() {
+    ID* Clone() final {
         return new ID(name);
     }
 
-    inline diag::TextInfo GetTextInfo() const final {
+    diag::TextInfo GetTextInfo() const final {
         return name.TextInfo();
     }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Name, name)
 };
 
+//======================================================================//
+//                          Assign  Class                               //
+//======================================================================//
 class Assign : public Expr {
   private:
     ID* id;
@@ -201,16 +247,20 @@ class Assign : public Expr {
 
     Assign(ID* _id, Expr* _expr) : id(_id), expr(_expr) {}
 
-    Assign* Clone() { return new Assign(id->Clone(), expr->Clone()); }
+    Assign* Clone() final {
+        return new Assign(id->Clone(), expr->Clone());
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return id->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return id->GetTextInfo(); }
 
     COOL_REPR_SETTER_GETTER_POINTER(ID, Id, id)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Expr, expr)
 };
 
+//======================================================================//
+//                           Call  Class                                //
+//======================================================================//
 class FuncFeature;
-
 class Call : public Expr {
   private:
     ID* id;
@@ -220,22 +270,27 @@ class Call : public Expr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Call)
 
-    Call(ID* _id, vector<Expr*> _args, FuncFeature* _link) : id(_id), args(_args), link(_link) {}
+    Call(ID* _id, const vector<Expr*>& _args, FuncFeature* _link)
+    : id(_id), args(_args), link(_link) {}
 
-    Call* Clone() { return new Call(id, args, link);  }
+    Call* Clone() final { return new Call(id, args, link);  }
 
-    inline diag::TextInfo GetTextInfo() const final { return id->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return id->GetTextInfo(); }
 
     COOL_REPR_SETTER_GETTER_POINTER(ID, Id, id)
     COOL_REPR_SETTER_GETTER(vector<Expr*>, Args, args)
     COOL_REPR_SETTER_GETTER_POINTER(FuncFeature, Link, link)
 };
 
+//======================================================================//
+//                              If Class                                //
+//======================================================================//
 class If : public Expr {
   private:
     Expr* ifExpr;
     Expr* thenExpr;
     Expr* elseExpr;
+    string type;
 
 public:
     COOL_REPR_BASE_CONSTRUCTOR(If)
@@ -243,15 +298,26 @@ public:
     If(Expr* _ifExpr, Expr* _thenExpr, Expr* _elseExpr)
     : ifExpr(_ifExpr), thenExpr(_thenExpr), elseExpr(_elseExpr) {}
 
-    If* Clone() { return new If(ifExpr->Clone(), thenExpr->Clone(), elseExpr->Clone()); }
+    If* Clone() final {
+        return new If(
+            ifExpr->Clone(),
+            thenExpr->Clone(),
+            elseExpr->Clone());
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return ifExpr->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final {
+        return ifExpr->GetTextInfo();
+    }
 
     COOL_REPR_SETTER_GETTER_POINTER(Expr, IfExpr, ifExpr)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, ThenExpr, thenExpr)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, ElseExpr, elseExpr)
+    COOL_REPR_SETTER_GETTER(string, Type, type)
 };
 
+//======================================================================//
+//                           Block Class                                //
+//======================================================================//
 class Block : public Expr {
   private:
     diag::TextInfo textInfo;
@@ -260,16 +326,21 @@ class Block : public Expr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Block)
 
-    Block(diag::TextInfo _textInfo, vector<Expr*> _exprs = {})
+    Block(diag::TextInfo _textInfo, const vector<Expr*>& _exprs = {})
     : textInfo(_textInfo), exprs(_exprs) {}
 
-    Block* Clone() { return new Block(textInfo, exprs); }
+    Block* Clone() final {
+        return new Block(textInfo, exprs);
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return textInfo; }
+    diag::TextInfo GetTextInfo() const final { return textInfo; }
 
     COOL_REPR_SETTER_GETTER(vector<Expr*>, Exprs, exprs)
 };
 
+//======================================================================//
+//                            While Class                               //
+//======================================================================//
 class While : public Expr {
   private:
     Expr* whileExpr;
@@ -281,14 +352,22 @@ class While : public Expr {
     While(Expr* _whileExpr, Expr* _loopExpr)
     : whileExpr(_whileExpr), loopExpr(_loopExpr) {}
 
-    While* Clone() { new While(whileExpr->Clone(), loopExpr->Clone()); }
+    While* Clone() final {
+        new While(whileExpr->Clone(),
+            loopExpr->Clone());
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return whileExpr->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final {
+        return whileExpr->GetTextInfo();
+    }
 
     COOL_REPR_SETTER_GETTER_POINTER(Expr, WhileExpr, whileExpr)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, LoopExpr, loopExpr)
 };
 
+//======================================================================//
+//                             Let Class                                //
+//======================================================================//
 class Let : public Expr {
   public:
     class Decl : public Repr {
@@ -300,12 +379,17 @@ class Let : public Expr {
       public:
         COOL_REPR_BASE_CONSTRUCTOR(Decl)
 
-        Decl(const StringAttr& _name, const StringAttr& _type, Expr* _expr)
+        Decl(const StringAttr& _name, const StringAttr& _type,
+            Expr* _expr)
             : name(_name), type(_type), expr(_expr) {}
 
-        Decl* Clone() { return new Decl(name, type, expr->Clone()); }
+        Decl* Clone() final {
+            return new Decl(name, type, expr->Clone());
+        }
 
-        inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
+        diag::TextInfo GetTextInfo() const final {
+            return name.TextInfo();
+        }
 
         COOL_REPR_SETTER_GETTER(StringAttr, Name, name)
         COOL_REPR_SETTER_GETTER(StringAttr, Type, type)
@@ -319,19 +403,27 @@ class Let : public Expr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Let)
 
-    Let(vector<Let::Decl*> _decls, Expr* _expr) : decls(_decls), expr(_expr) {}
+    Let(const vector<Let::Decl*>& _decls, Expr* _expr)
+    : decls(_decls), expr(_expr) {}
 
-    Let* Clone() { return new Let(decls, expr->Clone()); }
+    Let* Clone() final {
+        return new Let(decls, expr->Clone());
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return expr->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final {
+        return expr->GetTextInfo();
+    }
 
     COOL_REPR_SETTER_GETTER(vector<Let::Decl*>, Decls, decls)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Expr, expr)
 };
 
+//======================================================================//
+//                           Case Class                                 //
+//======================================================================//
 class Case : public Expr {
   public:
-    class Branch : Repr {
+    class Branch : public Repr {
       private:
         StringAttr id;
         StringAttr type;
@@ -340,12 +432,17 @@ class Case : public Expr {
       public:
         COOL_REPR_BASE_CONSTRUCTOR(Branch)
 
-        Branch(const StringAttr& _id, const StringAttr& _type, Expr* _expr)
+        Branch(const StringAttr& _id, const StringAttr& _type,
+            Expr* _expr)
         : id(_id), type(_type), expr(_expr) {}
 
-        Branch* Clone() { return new Branch(id, type, expr->Clone()); }
+        Branch* Clone() final {
+            return new Branch(id, type, expr->Clone());
+        }
 
-        inline diag::TextInfo GetTextInfo() const final { return expr->GetTextInfo(); }
+        diag::TextInfo GetTextInfo() const final {
+            return expr->GetTextInfo();
+        }
 
         COOL_REPR_SETTER_GETTER(StringAttr, Id, id)
         COOL_REPR_SETTER_GETTER(StringAttr, Type, type)
@@ -359,21 +456,22 @@ class Case : public Expr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Case)
 
-    Case(Expr* _expr, vector<Branch*> _branches) : expr(_expr), branches(_branches) {}
+    Case(Expr* _expr, const vector<Branch*>& _branches)
+    : expr(_expr), branches(_branches) {}
 
-    Case* Clone() {
-        vector<Branch*> _branches(branches.size());
-        for (int i = 0; i < branches.size(); i++)
-            _branches[i] = branches.at(i)->Clone();
-        return new Case(expr->Clone(), _branches);
+    Case* Clone() final;
+
+    diag::TextInfo GetTextInfo() const final {
+        return expr->GetTextInfo();
     }
-
-    inline diag::TextInfo GetTextInfo() const final { return expr->GetTextInfo(); }
 
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Expr, expr)
     COOL_REPR_SETTER_GETTER(vector<Branch*>, Branches, branches)
 };
 
+//======================================================================//
+//                            New Class                                 //
+//======================================================================//
 class New : public Expr {
   private:
     StringAttr type;
@@ -383,13 +481,16 @@ class New : public Expr {
 
     New(const StringAttr& _type) : type(_type) {}
 
-    New* Clone() { return new New(type); }
+    New* Clone() final { return new New(type); }
 
-    inline diag::TextInfo GetTextInfo() const final { return type.TextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return type.TextInfo(); }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Type, type)
 };
 
+//======================================================================//
+//                          Unary Class                                 //
+//======================================================================//
 class Unary : public Expr {
   protected:
     Expr* expr;
@@ -399,40 +500,52 @@ class Unary : public Expr {
 
     Unary(Expr* _expr) : expr(_expr) {}
 
-    Unary* Clone() { return new Unary(expr->Clone()); }
-
-    inline diag::TextInfo GetTextInfo() const final { return expr->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final {
+        return expr->GetTextInfo();
+    }
 
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Expr, expr)
 };
 
+//======================================================================//
+//                          IsVoid Class                                //
+//======================================================================//
 class IsVoid : public Unary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(IsVoid)
 
     IsVoid(Expr* _expr) : Unary(_expr) {}
 
-    IsVoid* Clone() { return new IsVoid(expr->Clone()); }
+    IsVoid* Clone() final { return new IsVoid(expr->Clone()); }
 };
 
+//======================================================================//
+//                          Negate Class                                //
+//======================================================================//
 class Negate : public Unary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Negate)
 
     Negate(Expr* _expr) : Unary(_expr) {}
 
-    Negate* Clone() { return new Negate(expr->Clone()); }
+    Negate* Clone() final { return new Negate(expr->Clone()); }
 };
 
+//======================================================================//
+//                             Not Class                                //
+//======================================================================//
 struct Not : public Unary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Not)
 
     Not(Expr* _expr) : Unary(_expr) {}
 
-    Not* Clone() { return new Not(expr->Clone()); }
+    Not* Clone() final { return new Not(expr->Clone()); }
 };
 
+//======================================================================//
+//                          Binary Class                                //
+//======================================================================//
 class Binary : public Expr {
   protected:
     Expr* left;
@@ -443,77 +556,116 @@ class Binary : public Expr {
 
     Binary(Expr* _left, Expr* _right) : left(_left), right(_right) {}
 
-    Binary* Clone() { return new Binary(left->Clone(), right->Clone()); }
-
-    inline diag::TextInfo GetTextInfo() const final { return left->GetTextInfo(); }
+    diag::TextInfo GetTextInfo() const final {
+        return left->GetTextInfo();
+    }
 
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Left, left)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Right, right)
 };
 
+//======================================================================//
+//                             Add Class                                //
+//======================================================================//
 class Add : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Add)
 
     Add(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    Add* Clone() { return new Add(left->Clone(), right->Clone()); }
+    Add* Clone() final {
+        return new Add(left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                           Minus Class                                //
+//======================================================================//
 class Minus : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Minus)
 
     Minus(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    Minus* Clone() { return new Minus(left->Clone(), right->Clone()); }
+    Minus* Clone() final {
+        return new Minus(left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                           Multiply Class                             //
+//======================================================================//
 class Multiply : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Multiply)
 
     Multiply(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    Multiply* Clone() { return new Multiply(left->Clone(), right->Clone()); }
+    Multiply* Clone() final {
+        return new Multiply(left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                             Divide Class                             //
+//======================================================================//
 class Divide : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Divide)
 
     Divide(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    Divide* Clone() { return new Divide(left->Clone(), right->Clone()); }
+    Divide* Clone() final {
+        return new Divide(left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                             LessThan Class                           //
+//======================================================================//
 class LessThan : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(LessThan)
 
     LessThan(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    LessThan* Clone() { return new LessThan(left->Clone(), right->Clone()); }
+    LessThan* Clone() final {
+        return new LessThan(left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                      LessThanOrEqual Class                           //
+//======================================================================//
 class LessThanOrEqual : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(LessThanOrEqual)
 
     LessThanOrEqual(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    LessThanOrEqual* Clone() { return new LessThanOrEqual(left->Clone(), right->Clone()); }
+    LessThanOrEqual* Clone() final {
+        return new LessThanOrEqual(
+            left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                           Equal Class                                //
+//======================================================================//
 class Equal : public Binary {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Equal)
 
     Equal(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    Equal* Clone() { return new Equal(left->Clone(), right->Clone()); }
+    Equal* Clone() final {
+        return new Equal(left->Clone(), right->Clone());
+    }
 };
 
+//======================================================================//
+//                        MethodCall Class                              //
+//======================================================================//
 class MethodCall : public Binary {
   private:
     string type;
@@ -523,11 +675,16 @@ class MethodCall : public Binary {
 
     MethodCall(Expr* _left, Expr* _right) : Binary(_left, _right) {}
 
-    MethodCall* Clone() { return new MethodCall(left->Clone(), right->Clone()); }
+    MethodCall* Clone() final {
+        return new MethodCall(left->Clone(), right->Clone());
+    }
 
     COOL_REPR_SETTER_GETTER(string, Type, type)
 };
 
+//======================================================================//
+//                            nteger Class                              //
+//======================================================================//
 class Integer : public Expr {
   private:
     IntAttr val;
@@ -537,15 +694,18 @@ class Integer : public Expr {
 
     Integer(const IntAttr& _val) : val(_val) {}
 
-    Integer* Clone() { return new Integer(val); }
+    Integer* Clone() final { return new Integer(val); }
 
     IntAttr Value() { return val; }
 
-    inline diag::TextInfo GetTextInfo() const final { return val.TextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return val.TextInfo(); }
 
     COOL_REPR_SETTER_GETTER(IntAttr, Value, val)
 };
 
+//======================================================================//
+//                            String Class                              //
+//======================================================================//
 class String : public Expr {
   private:
     StringAttr val;
@@ -555,15 +715,18 @@ class String : public Expr {
 
     String(const StringAttr& _val) : val(_val) {}
 
-    String* Clone() { return new String(val); }
+    String* Clone() final { return new String(val); }
 
     StringAttr Value() { return val; }
 
-    inline diag::TextInfo GetTextInfo() const final { return val.TextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return val.TextInfo(); }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Value, val)
 };
 
+//======================================================================//
+//                              True Class                              //
+//======================================================================//
 class True : public Expr {
   private:
     diag::TextInfo textInfo;
@@ -575,9 +738,12 @@ class True : public Expr {
 
     True* Clone() { return new True(textInfo); }
 
-    inline diag::TextInfo GetTextInfo() const final { return textInfo; }
+    diag::TextInfo GetTextInfo() const final { return textInfo; }
 };
 
+//======================================================================//
+//                            False Class                               //
+//======================================================================//
 class False : public Expr {
   private:
     diag::TextInfo textInfo;
@@ -587,12 +753,15 @@ class False : public Expr {
 
     False(const diag::TextInfo& _textInfo) : textInfo(_textInfo) {}
 
-    False* Clone() { return new False(textInfo); }
+    False* Clone() final { return new False(textInfo); }
 
-    inline diag::TextInfo GetTextInfo() const final { return textInfo; }
+    diag::TextInfo GetTextInfo() const final { return textInfo; }
 };
 
-class FuncFeature : Repr {
+//======================================================================//
+//                        FuncFeature Class                             //
+//======================================================================//
+class FuncFeature : public Repr {
   private:
     StringAttr name;
     StringAttr type;
@@ -602,17 +771,13 @@ class FuncFeature : Repr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(FuncFeature)
 
-    FuncFeature(const StringAttr& _name, const StringAttr& _type, Expr* _expr, vector<Formal*> _args = {})
+    FuncFeature(const StringAttr& _name, const StringAttr& _type,
+        Expr* _expr, vector<Formal*> _args = {})
     : name(_name), type(_type), expr(_expr), args(_args) {}
 
-    FuncFeature* Clone() {
-        vector<Formal*> _args;
-        for (auto& arg : args)
-            _args.emplace_back(arg->Clone());
-        return new FuncFeature(name, type, expr->Clone(), _args);
-    }
+    FuncFeature* Clone() final;
 
-    inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Name, name)
     COOL_REPR_SETTER_GETTER(StringAttr, Type, type)
@@ -620,7 +785,10 @@ class FuncFeature : Repr {
     COOL_REPR_SETTER_GETTER(vector<Formal*>, Args, args)
 };
 
-class FieldFeature : Repr {
+//======================================================================//
+//                        FieldFeature Class                            //
+//======================================================================//
+class FieldFeature : public Repr {
   private:
     StringAttr name;
     StringAttr type;
@@ -629,19 +797,25 @@ class FieldFeature : Repr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(FieldFeature)
 
-    FieldFeature(const StringAttr& _name, const StringAttr& _type, Expr* _expr)
+    FieldFeature(const StringAttr& _name,
+        const StringAttr& _type, Expr* _expr)
     : name(_name), type(_type), expr(_expr) {}
 
-    FieldFeature* Clone() { return new FieldFeature(name, type, expr); }
+    FieldFeature* Clone() final {
+        return new FieldFeature(name, type, expr);
+    }
 
-    inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
+    diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
 
     COOL_REPR_SETTER_GETTER(StringAttr, Name, name)
     COOL_REPR_SETTER_GETTER(StringAttr, Type, type)
     COOL_REPR_SETTER_GETTER_POINTER(Expr, Expr, expr)
 };
 
-class Class : Repr {
+//======================================================================//
+//                         Class Class                                  //
+//======================================================================//
+class Class : public Repr {
   private:
     StringAttr name;
     StringAttr parent;
@@ -652,79 +826,53 @@ class Class : Repr {
 
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Class)
+    Class(const StringAttr&, const StringAttr&,
+        vector<FuncFeature*>, vector<FieldFeature*>);
 
-    Class(const StringAttr& _name, const StringAttr& _parent, vector<FuncFeature*> _funcs = {},
-        vector<FieldFeature*> _fields = {})
-        : name(_name), parent(_parent), funcs(move(_funcs)), fields(move(_fields)) {
-        for (auto& func : funcs) funcMap.insert({func->GetName().Value(), func});
-        for (auto& field : fields) fieldMap.insert({field->GetName().Value(), field});
+    Class* Clone() final;
+
+    diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
+
+    FuncFeature* GetFuncFeaturePtr(const string& name) {
+        return funcMap.find(name) == funcMap.end() ?
+        nullptr : funcMap.at(name);
     }
 
-    Class* Clone() {
-        vector<FuncFeature*> _funcs(funcs.size());
-        for(int i = 0; i < funcs.size(); i++)
-            _funcs[i] = funcs.at(i)->Clone();
-        vector<FieldFeature*> _fields(fields.size());
-        for(int i = 0; i < fields.size(); i++)
-            _fields[i] = fields.at(i)->Clone();
+    vector<FuncFeature*>& GetFuncFeatures() { return funcs; }
 
-        return new Class(name, parent, _funcs, _fields);
+    FieldFeature* GetFieldFeaturePtr(const string& name) {
+        return fieldMap.find(name) == fieldMap.end() ?
+        nullptr : fieldMap.at(name);
     }
 
-    inline diag::TextInfo GetTextInfo() const final { return name.TextInfo(); }
-
-    inline FuncFeature* GetFuncFeaturePtr(const string& name) {
-        return funcMap.find(name) == funcMap.end() ? nullptr : funcMap.at(name);
-    }
-
-    inline vector<FuncFeature*>& GetFuncFeatures() { return funcs; }
-
-    inline FieldFeature* GetFieldFeaturePtr(const string& name) {
-        return fieldMap.find(name) == fieldMap.end() ? nullptr : fieldMap.at(name);
-    }
-
-    inline vector<FieldFeature*>& GetFieldFeatures() { return fields; }
+    vector<FieldFeature*>& GetFieldFeatures() { return fields; }
 
     bool AddFuncFeature(FuncFeature* feat) {
-        if (funcMap.find(feat->GetName().Value()) != funcMap.end()) return false;
+        if (funcMap.find(feat->GetName().Value()) != funcMap.end())
+            return false;
         funcs.emplace_back(feat);
         funcMap.insert({feat->GetName().Value(), feat});
         return true;
     }
 
     bool AddFieldFeature(FieldFeature* feat) {
-        if (fieldMap.find(feat->GetName().Value()) != fieldMap.end()) return false;
+        if (fieldMap.find(feat->GetName().Value()) != fieldMap.end())
+            return false;
         fields.emplace_back(feat);
         fieldMap.insert({feat->GetName().Value(), feat});
         return true;
     }
 
-    void DeleteFuncFeature(const string& name) {
-        if (!GetFuncFeaturePtr(name)) return;
-        funcMap.erase(name);
-        for (auto it = funcs.begin(); it != funcs.end(); it++) {
-            if ((*it)->GetName().Value() == name) {
-                funcs.erase(it);
-                return;
-            }
-        }
-    }
-
-    void DeleteFieldFeature(const string& name) {
-        if (!GetFieldFeaturePtr(name)) return;
-        fieldMap.erase(name);
-        for (auto it = fields.begin(); it != fields.end(); it++) {
-            if ((*it)->GetName().Value() == name) {
-                fields.erase(it);
-                return;
-            }
-        }
-    }
+    void DeleteFuncFeature(const string&);
+    void DeleteFieldFeature(const string& name);
 
     COOL_REPR_SETTER_GETTER(StringAttr, Name, name);
     COOL_REPR_SETTER_GETTER(StringAttr, Parent, parent);
 };
 
+//======================================================================//
+//                         Program Class                                //
+//======================================================================//
 class Program : public Repr {
   private:
     diag::TextInfo textInfo;
@@ -734,25 +882,18 @@ class Program : public Repr {
   public:
     COOL_REPR_BASE_CONSTRUCTOR(Program)
 
-    Program(const diag::TextInfo& _textInfo, vector<Class*> _classVec = {})
-    : textInfo(_textInfo), classVec(_classVec) {
-        for (auto& cls : classVec)
-            classMap.insert({cls->GetName().Value(), cls});
+    Program(const diag::TextInfo&, const vector<Class*>&);
+
+    Program* Clone() final;
+
+    diag::TextInfo GetTextInfo() const final { return textInfo; }
+
+    Class* GetClassPtr(const string& name) {
+        return classMap.find(name) != classMap.end() ?
+        classMap.at(name) : nullptr;
     }
 
-    Program* Clone() {
-        vector<Class*> _classVec(classVec.size());
-        for (int i = 0; i < classVec.size(); i++)
-            _classVec[i] = classVec.at(i)->Clone();
-    }
-
-    inline diag::TextInfo GetTextInfo() const final { return textInfo; }
-
-    inline Class* GetClassPtr(const string& name) {
-        return classMap.find(name) != classMap.end() ? classMap.at(name) : nullptr;
-    }
-
-    inline vector<Class*> GetClasses() { return classVec; }
+    vector<Class*> GetClasses() { return classVec; }
 
     bool AddClass(Class* cls) {
         if (GetClassPtr(cls->GetName().Value()))
@@ -762,14 +903,7 @@ class Program : public Repr {
         return true;
     }
 
-    void DeleteClass(const string& name) {
-        if (!GetClassPtr(name)) return;
-        classMap.erase(name);
-        auto it = classVec.begin();
-        for (; it != classVec.end() && (*it)->GetName().Value() != name; it++) {}
-        assert(it != classVec.end());
-        classVec.erase(it);
-    }
+    void DeleteClass(const string&);
 };
 
 } // expr

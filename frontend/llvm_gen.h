@@ -33,8 +33,13 @@ using namespace repr;
 
 namespace irgen {
 
-class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFeatureVisitor<llvm::Value*>,
-    FieldFeatureVisitor<llvm::Type*>, FormalVisitor<llvm::Type*>, ExprVisitor<llvm::Value*> {
+//======================================================================//
+//                         LLVMGen Class                                //
+//======================================================================//
+class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>,
+    FuncFeatureVisitor<llvm::Value*>, FieldFeatureVisitor<llvm::Type*>,
+    FormalVisitor<llvm::Type*>, ExprVisitor<llvm::Value*> {
+
   private:
     std::unique_ptr<llvm::LLVMContext> context;
     std::unique_ptr<llvm::IRBuilder<>> builder;
@@ -43,6 +48,9 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     adt::ScopedTableSpecializer<adt::SymbolTable>& stable;
     llvm::raw_os_ostream os; // todo: use diag
 
+    //==================================================================//
+    //                       SymbolTable Class                          //
+    //==================================================================//
     class SymbolTable {
       private:
         adt::ScopedTableSpecializer<adt::SymbolTable>& stable;
@@ -84,14 +92,15 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
     llvm::PointerType* GetStringLLVMType();
     llvm::Value* AllocLLVMConstStringStruct(const string& str);
     llvm::Type* GetLLVMType(const string& type);
+    llvm::Value* GetPointedValueIfAPointer(llvm::Value*);
     bool IsMappedToLLVMStructPointerType(const string& type);
     bool IsStringLLVMType(llvm::Value* v);
 
     // C is the class name
     string FunctionName(const string& name, const string& C);
     // get the Function if existed, otherwise create one
-    llvm::Function* CreateFunctionDeclIfNx(const string& name, const string& type,
-        const string& selfType, vector<Formal*> args);
+    llvm::Function* CreateFunctionDeclIfNx(const string& name,
+        const string& type, const string& selfType, vector<Formal*> args);
 
     llvm::Function* CreateFunctionMain();
     void CreateRuntimeFunctionDecls();
@@ -104,6 +113,9 @@ class LLVMGen : public ProgramVisitor<llvm::Value*>, ClassVisitor<void>, FuncFea
 
     llvm::Value* CreateMallocCall(int size, llvm::Type* ptrType);
 
+    llvm::Value* CreateICmpAsCoolBool(
+        llvm::CmpInst::Predicate, llvm::Value* left, llvm::Value* right);
+
     // for debug only
     void PrintPointer(llvm::Value* value);
 
@@ -115,39 +127,40 @@ public:
     void DumpTextualIR(const string& filename);
     void EmitObjectFile(const string& filename);
 
-    llvm::Value* genCall(const string& selfType, llvm::Value* self, repr::Call& call);
+    llvm::Value* genCall(const string& selfType,
+        llvm::Value* self, repr::Call& call);
 
     llvm::Value* Visit(Program& prog);
-    void Visit(Class& cls);
-    llvm::Value* Visit(FuncFeature& feat);
-    llvm::Type*  Visit(FieldFeature& feat);
-    llvm::Type*  Visit(Formal& formal);
-    llvm::Value* Visit(repr::Expr& expr);
-    llvm::Value* Visit_(repr::LinkBuiltin& expr);
-    llvm::Value* Visit_(repr::Assign& expr);
-    llvm::Value* Visit_(repr::Add& expr);
-    llvm::Value* Visit_(repr::Block& expr);
-    llvm::Value* Visit_(repr::Case& expr);
-    llvm::Value* Visit_(repr::Call& expr);
-    llvm::Value* Visit_(repr::Divide& expr);
-    llvm::Value* Visit_(repr::Equal& expr);
-    llvm::Value* Visit_(repr::False& expr);
-    llvm::Value* Visit_(repr::ID& expr);
-    llvm::Value* Visit_(repr::IsVoid& expr);
-    llvm::Value* Visit_(repr::Integer& expr);
-    llvm::Value* Visit_(repr::If& expr);
-    llvm::Value* Visit_(repr::LessThanOrEqual& expr);
-    llvm::Value* Visit_(repr::LessThan& expr);
-    llvm::Value* Visit_(repr::Let& expr);
-    llvm::Value* Visit_(repr::MethodCall& expr);
-    llvm::Value* Visit_(repr::Multiply& expr);
-    llvm::Value* Visit_(repr::Minus& expr);
-    llvm::Value* Visit_(repr::Negate& expr);
-    llvm::Value* Visit_(repr::New& expr);
-    llvm::Value* Visit_(repr::Not& expr);
-    llvm::Value* Visit_(repr::String& expr);
-    llvm::Value* Visit_(repr::True& expr);
-    llvm::Value* Visit_(repr::While& expr);
+    void Visit(Class&);
+    llvm::Value* Visit(FuncFeature& );
+    llvm::Type*  Visit(FieldFeature&);
+    llvm::Type*  Visit(Formal&);
+    llvm::Value* Visit(repr::Expr&);
+    llvm::Value* Visit_(repr::LinkBuiltin&);
+    llvm::Value* Visit_(repr::Assign&);
+    llvm::Value* Visit_(repr::Add&);
+    llvm::Value* Visit_(repr::Block&);
+    llvm::Value* Visit_(repr::Case&);
+    llvm::Value* Visit_(repr::Call&);
+    llvm::Value* Visit_(repr::Divide&);
+    llvm::Value* Visit_(repr::Equal&);
+    llvm::Value* Visit_(repr::False&);
+    llvm::Value* Visit_(repr::ID&);
+    llvm::Value* Visit_(repr::IsVoid&);
+    llvm::Value* Visit_(repr::Integer&);
+    llvm::Value* Visit_(repr::If&);
+    llvm::Value* Visit_(repr::LessThanOrEqual&);
+    llvm::Value* Visit_(repr::LessThan&);
+    llvm::Value* Visit_(repr::Let&);
+    llvm::Value* Visit_(repr::MethodCall&);
+    llvm::Value* Visit_(repr::Multiply&);
+    llvm::Value* Visit_(repr::Minus&);
+    llvm::Value* Visit_(repr::Negate&);
+    llvm::Value* Visit_(repr::New&);
+    llvm::Value* Visit_(repr::Not&);
+    llvm::Value* Visit_(repr::String&);
+    llvm::Value* Visit_(repr::True&);
+    llvm::Value* Visit_(repr::While&);
 };
 
 } // namespace irgen

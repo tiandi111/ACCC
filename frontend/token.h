@@ -63,7 +63,8 @@ struct Token {
         kCloseBrace,
         kAssignment,
         kEval,
-        SKIP, // skipped token
+        SKIP, // invalid tokens thar should be skipped
+        Comment,
         END
     };
     Type type;
